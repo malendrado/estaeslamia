@@ -1,0 +1,91 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif;
+  background: var(--eslm-bg);
+  color: var(--eslm-ink);
+}
+
+:root {
+  /* Paleta inspirada en las fachadas de los cerros de Valparaíso: */
+  --eslm-ink: #16213e;
+  --eslm-bg: #fffbf2;
+  --eslm-primary: #0e8388;
+  --eslm-primary-dark: #0a5f63;
+  --eslm-accent: #ff6b4a;
+  --eslm-accent-2: #ffb100;
+  --eslm-accent-3: #6c4ab6;
+
+  --eslm-font-display: 'Fraunces', Georgia, serif;
+  --eslm-font-body: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--eslm-font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--eslm-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * Reskin de Angular Material: reemplaza el indigo por defecto del tema
+ * prebuilt (indigo-pink.css) por nuestra paleta, sin reconstruir el tema
+ * completo en Sass. Selectores estables de la API pública de Material.
+ * --------------------------------------------------------------------- */
+.mat-mdc-unelevated-button.mat-primary,
+.mat-mdc-raised-button.mat-primary,
+.mat-mdc-fab.mat-primary,
+.mat-mdc-mini-fab.mat-primary {
+  background-color: var(--eslm-primary) !important;
+  color: #fff !important;
+}
+
+.mat-mdc-outlined-button.mat-primary {
+  color: var(--eslm-primary) !important;
+  border-color: var(--eslm-primary) !important;
+}
+
+.mat-mdc-button.mat-primary,
+.mat-mdc-icon-button.mat-primary {
+  color: var(--eslm-primary) !important;
+}
+
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: var(--eslm-primary) !important;
+}
+.mat-mdc-form-field.mat-focused .mdc-floating-label {
+  color: var(--eslm-primary) !important;
+}
+
+.mat-mdc-checkbox .mdc-checkbox__native-control:enabled:checked ~ .mdc-checkbox__background,
+.mat-mdc-checkbox .mdc-checkbox__native-control:enabled:indeterminate ~ .mdc-checkbox__background {
+  background-color: var(--eslm-primary) !important;
+  border-color: var(--eslm-primary) !important;
+}
+
+.mat-step-icon-selected,
+.mat-step-icon-state-edit {
+  background-color: var(--eslm-primary) !important;
+}
+
+.mat-mdc-progress-spinner circle {
+  stroke: var(--eslm-primary) !important;
+}
+
+.mat-mdc-menu-item:hover:not([disabled]) {
+  background: rgba(14, 131, 136, 0.06) !important;
+}

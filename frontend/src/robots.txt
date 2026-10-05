@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /proveedor
+Disallow: /mis-solicitudes
+Disallow: /solicitud/
+
+Sitemap: https://estaeslamia.cl/sitemap.xml

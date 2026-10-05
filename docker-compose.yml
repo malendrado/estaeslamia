@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: estaeslamia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-estaeslamia}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-estaeslamia}
+      POSTGRES_DB: ${DB_NAME:-estaeslamia}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-estaeslamia}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: estaeslamia-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/workspace/backend
+      - ./package.json:/workspace/package.json
+      - ./package-lock.json:/workspace/package-lock.json
+      - /workspace/node_modules
+      - /workspace/backend/node_modules
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: estaeslamia-frontend
+    restart: unless-stopped
+    ports:
+      - '4200:4200'
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/workspace/frontend
+      - ./package.json:/workspace/package.json
+      - ./package-lock.json:/workspace/package-lock.json
+      - /workspace/node_modules
+      - /workspace/frontend/node_modules
+
+  # Opcional, no obligatorio para el MVP
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: estaeslamia-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@estaeslamia.cl
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - '5050:80'
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:

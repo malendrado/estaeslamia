@@ -1,0 +1,170 @@
+import { Component, OnInit, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonModule } from '@angular/material/button';
+import { UsersService } from '../../core/services/users.service';
+import { User, UserRole } from '../../core/models/models';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { LoadingComponent } from '../../shared/components/loading/loading.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { PagerComponent } from '../../shared/components/pager/pager.component';
+
+const ALL_ROLES = Object.values(UserRole);
+const PAGE_SIZE = 20;
+
+@Component({
+  selector: 'app-admin-users',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatButtonModule,
+    StatusBadgeComponent,
+    LoadingComponent,
+    EmptyStateComponent,
+    PagerComponent,
+  ],
+  template: `
+    <div class="filters">
+      <mat-form-field appearance="outline">
+        <mat-label>Rol</mat-label>
+        <mat-select [(ngModel)]="roleFilter" (selectionChange)="goToPage(1)">
+          <mat-option [value]="undefined">Todos</mat-option>
+          @for (r of roles; track r) {
+            <mat-option [value]="r">{{ r }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Estado</mat-label>
+        <mat-select [(ngModel)]="activeFilter" (selectionChange)="goToPage(1)">
+          <mat-option [value]="undefined">Todos</mat-option>
+          <mat-option [value]="true">Activos</mat-option>
+          <mat-option [value]="false">Inactivos / suspendidos</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    @if (loading()) {
+      <app-loading></app-loading>
+    } @else if (users().length === 0) {
+      <app-empty-state icon="people" message="No hay usuarios con este filtro."></app-empty-state>
+    } @else {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users(); track user.id) {
+              <tr>
+                <td>{{ user.name }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.role }}</td>
+                <td><app-status-badge [status]="user.isActive ? 'ACTIVE' : 'SUSPENDED'"></app-status-badge></td>
+                <td>
+                  @if (user.isActive) {
+                    <button mat-button color="warn" (click)="toggle(user, false)">Suspender</button>
+                  } @else if (user.hasPassword) {
+                    <button mat-button color="primary" (click)="toggle(user, true)">Reactivar</button>
+                  } @else {
+                    <span class="hint">Cuenta sin registrar</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-pager [page]="page()" [total]="total()" [limit]="PAGE_SIZE" (pageChange)="goToPage($event)"></app-pager>
+    }
+  `,
+  styles: [
+    `
+      .filters {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+      .table-scroll {
+        overflow-x: auto;
+      }
+      .data-table {
+        width: 100%;
+        min-width: 560px;
+        border-collapse: collapse;
+      }
+      .data-table th {
+        text-align: left;
+        font-size: 0.8rem;
+        color: #757575;
+        border-bottom: 1px solid #eee;
+        padding: 0.5rem;
+      }
+      .data-table td {
+        padding: 0.6rem 0.5rem;
+        border-bottom: 1px solid #f2f2f2;
+        font-size: 0.9rem;
+      }
+      .hint {
+        color: #999;
+        font-size: 0.8rem;
+      }
+    `,
+  ],
+})
+export class AdminUsersComponent implements OnInit {
+  readonly PAGE_SIZE = PAGE_SIZE;
+  readonly roles = ALL_ROLES;
+  readonly users = signal<User[]>([]);
+  readonly total = signal(0);
+  readonly page = signal(1);
+  readonly loading = signal(true);
+  roleFilter: UserRole | undefined;
+  activeFilter: boolean | undefined;
+
+  constructor(private readonly usersService: UsersService) {}
+
+  ngOnInit(): void {
+    this.reload();
+  }
+
+  goToPage(page: number): void {
+    this.page.set(page);
+    this.reload();
+  }
+
+  reload(): void {
+    this.loading.set(true);
+    this.usersService
+      .getAllForAdmin({ role: this.roleFilter, isActive: this.activeFilter, page: this.page(), limit: PAGE_SIZE })
+      .subscribe({
+        next: (result) => {
+          this.users.set(result.data);
+          this.total.set(result.total);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false),
+      });
+  }
+
+  toggle(user: User, isActive: boolean): void {
+    this.usersService.setActiveStatus(user.id, isActive).subscribe({
+      next: (updated) => {
+        this.users.set(this.users().map((u) => (u.id === user.id ? { ...u, isActive: updated.isActive } : u)));
+      },
+    });
+  }
+}

@@ -1,0 +1,10 @@
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export function paginate<T>(data: T[], total: number, page: number, limit: number): PaginatedResult<T> {
+  return { data, total, page, limit };
+}
