@@ -7,17 +7,28 @@ import { ServiceRequest } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 
 @Component({
   selector: 'app-my-requests',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, StatusBadgeComponent, LoadingComponent, EmptyStateComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    MatButtonModule,
+    StatusBadgeComponent,
+    LoadingComponent,
+    EmptyStateComponent,
+    ErrorStateComponent,
+  ],
   template: `
     <div class="page">
       <h1>Mis solicitudes</h1>
 
       @if (loading()) {
         <app-loading></app-loading>
+      } @else if (hasError()) {
+        <app-error-state message="No pudimos cargar tus solicitudes. Intenta recargar la página."></app-error-state>
       } @else if (requests().length === 0) {
         <app-empty-state icon="assignment" message="Todavía no has enviado ninguna solicitud.">
           <a mat-flat-button color="primary" routerLink="/solicitar">Solicitar un servicio</a>
@@ -87,6 +98,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 export class MyRequestsComponent implements OnInit {
   readonly requests = signal<ServiceRequest[]>([]);
   readonly loading = signal(true);
+  readonly hasError = signal(false);
 
   constructor(private readonly serviceRequestsService: ServiceRequestsService) {}
 
@@ -96,7 +108,10 @@ export class MyRequestsComponent implements OnInit {
         this.requests.set(requests);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => {
+        this.loading.set(false);
+        this.hasError.set(true);
+      },
     });
   }
 }

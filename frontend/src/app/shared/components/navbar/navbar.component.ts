@@ -1,11 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { filter } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { AuthService } from '../../../core/services/auth.service';
-import { UserRole } from '../../../core/models/models';
+import { LeadsService } from '../../../core/services/leads.service';
+import { LeadStatus, UserRole } from '../../../core/models/models';
 
 @Component({
   selector: 'app-navbar',
@@ -25,15 +27,20 @@ import { UserRole } from '../../../core/models/models';
       <!-- Links completos: visibles desde tablet hacia arriba -->
       <nav class="links desktop-links">
         @if (!auth.isLoggedIn()) {
-          <a mat-button routerLink="/solicitar">Necesito un servicio</a>
-          <a mat-button routerLink="/proveedores/registro">Ofrezco servicios</a>
           <a mat-button routerLink="/login">Iniciar sesión</a>
+          <a class="nav-cta-outline" routerLink="/proveedores/registro">Ofrezco servicios</a>
+          <a class="nav-cta-primary" routerLink="/solicitar">Necesito un servicio</a>
         } @else {
           @if (auth.hasRole(role.CUSTOMER)) {
             <a mat-button routerLink="/mis-solicitudes" routerLinkActive="active">Mis solicitudes</a>
           }
           @if (auth.hasRole(role.PROVIDER)) {
-            <a mat-button routerLink="/proveedor" routerLinkActive="active">Mi panel</a>
+            <a mat-button routerLink="/proveedor" routerLinkActive="active" class="nav-link-with-badge">
+              Mi panel
+              @if (newLeadsCount() > 0) {
+                <span class="badge">{{ newLeadsCount() }}</span>
+              }
+            </a>
           }
           @if (auth.hasRole(role.ADMIN)) {
             <a mat-button routerLink="/admin" routerLinkActive="active">Admin</a>
@@ -62,7 +69,12 @@ import { UserRole } from '../../../core/models/models';
             <a mat-menu-item routerLink="/mis-solicitudes">Mis solicitudes</a>
           }
           @if (auth.hasRole(role.PROVIDER)) {
-            <a mat-menu-item routerLink="/proveedor">Mi panel</a>
+            <a mat-menu-item routerLink="/proveedor">
+              Mi panel
+              @if (newLeadsCount() > 0) {
+                <span class="badge">{{ newLeadsCount() }}</span>
+              }
+            </a>
           }
           @if (auth.hasRole(role.ADMIN)) {
             <a mat-menu-item routerLink="/admin">Admin</a>
@@ -79,7 +91,7 @@ import { UserRole } from '../../../core/models/models';
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.75rem 1.5rem;
+        padding: 0.9rem 1.5rem;
         border-bottom: 1px solid #eee;
         background: #fff;
       }
@@ -99,14 +111,57 @@ import { UserRole } from '../../../core/models/models';
         color: var(--eslm-ink);
       }
       .brand-accent {
-        color: var(--eslm-accent);
+        color: var(--eslm-accent-ink);
       }
       .links {
         display: flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 0.4rem;
       }
       .active {
+        font-weight: 700;
+        background: rgba(14, 131, 136, 0.08);
+        border-radius: 999px;
+      }
+      .nav-cta-outline,
+      .nav-cta-primary {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1.1rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+        transition: transform 0.15s ease;
+      }
+      .nav-cta-outline:hover,
+      .nav-cta-primary:hover {
+        transform: translateY(-1px);
+      }
+      .nav-cta-outline {
+        border: 2px solid var(--eslm-ink);
+        color: var(--eslm-ink);
+      }
+      .nav-cta-primary {
+        background: var(--eslm-accent);
+        color: var(--eslm-ink);
+      }
+      .nav-link-with-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: var(--eslm-accent);
+        color: var(--eslm-ink);
+        font-size: 0.72rem;
         font-weight: 700;
       }
       .menu-user {
@@ -130,6 +185,35 @@ import { UserRole } from '../../../core/models/models';
   ],
 })
 export class NavbarComponent {
+  private readonly leadsService = inject(LeadsService);
+  private readonly router = inject(Router);
+
   readonly role = UserRole;
-  constructor(readonly auth: AuthService) {}
+  readonly newLeadsCount = signal(0);
+
+  constructor(readonly auth: AuthService) {
+    effect(() => {
+      if (auth.hasRole(UserRole.PROVIDER)) {
+        this.refreshNewLeadsCount();
+      } else {
+        this.newLeadsCount.set(0);
+      }
+    });
+
+    // El conteo se puede quedar desactualizado si el provider revisa sus leads
+    // sin recargar la página (el navbar es un componente de larga vida) —
+    // se refresca en cada navegación para no mostrar un número viejo.
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
+      if (auth.hasRole(UserRole.PROVIDER)) {
+        this.refreshNewLeadsCount();
+      }
+    });
+  }
+
+  private refreshNewLeadsCount(): void {
+    this.leadsService.getMine(LeadStatus.DELIVERED).subscribe({
+      next: (leads) => this.newLeadsCount.set(leads.length),
+      error: () => {},
+    });
+  }
 }

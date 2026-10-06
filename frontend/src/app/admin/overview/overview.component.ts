@@ -22,11 +22,11 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
           <span class="label">Empresas registradas</span>
         </div>
         <div class="card" style="border-top-color: var(--eslm-accent)">
-          <span class="value" style="color: var(--eslm-accent)">{{ requestsCount() }}</span>
+          <span class="value" style="color: var(--eslm-accent-ink)">{{ requestsCount() }}</span>
           <span class="label">Solicitudes</span>
         </div>
         <div class="card" style="border-top-color: var(--eslm-accent-2)">
-          <span class="value" style="color: var(--eslm-accent-2)">{{ leadsCount() }}</span>
+          <span class="value" style="color: var(--eslm-accent-2-ink)">{{ leadsCount() }}</span>
           <span class="label">Leads generados</span>
         </div>
         <div class="card" style="border-top-color: var(--eslm-accent-3)">
@@ -104,6 +104,11 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
         display: flex;
         flex-direction: column;
         align-items: center;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -14px rgba(22, 33, 62, 0.25);
       }
       .card .value {
         font-size: 1.8rem;

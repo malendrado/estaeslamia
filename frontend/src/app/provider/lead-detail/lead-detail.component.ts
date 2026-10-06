@@ -55,11 +55,22 @@ const NEXT_STATUS: Partial<Record<LeadStatus, LeadStatus>> = {
         <p><mat-icon inline>mail</mat-icon> {{ lead()!.serviceRequest?.contactEmail }}</p>
         <p><mat-icon inline>call</mat-icon> {{ lead()!.serviceRequest?.contactPhone }}</p>
 
-        @if (nextAction()) {
-          <button mat-flat-button color="primary" (click)="advance()" [disabled]="updating()">
-            {{ updating() ? 'Actualizando...' : nextAction()!.label }}
-          </button>
+        @if (errorMessage()) {
+          <p class="error" role="alert">{{ errorMessage() }}</p>
         }
+
+        <div class="actions">
+          @if (nextAction()) {
+            <button mat-flat-button color="primary" (click)="changeStatus(nextAction()!.status)" [disabled]="updating()">
+              {{ updating() ? 'Actualizando...' : nextAction()!.label }}
+            </button>
+          }
+          @if (canReject()) {
+            <button mat-stroked-button color="warn" (click)="changeStatus(rejectedStatus)" [disabled]="updating()">
+              Rechazar
+            </button>
+          }
+        </div>
       </div>
     } @else {
       <p>No pudimos cargar este lead.</p>
@@ -89,13 +100,25 @@ const NEXT_STATUS: Partial<Record<LeadStatus, LeadStatus>> = {
         margin-top: 1.5rem;
         margin-bottom: 0.25rem;
       }
+      .actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+      }
+      .error {
+        color: #c62828;
+        font-size: 0.85rem;
+      }
     `,
   ],
 })
 export class ProviderLeadDetailComponent implements OnInit {
+  readonly rejectedStatus = LeadStatus.REJECTED;
+
   readonly lead = signal<Lead | null>(null);
   readonly loading = signal(true);
   readonly updating = signal(false);
+  readonly errorMessage = signal<string | null>(null);
 
   readonly nextAction = computed(() => {
     const current = this.lead()?.status;
@@ -104,6 +127,9 @@ export class ProviderLeadDetailComponent implements OnInit {
     if (!next) return null;
     return { status: next, label: NEXT_STATUS_LABEL[current]! };
   });
+
+  // REJECTED solo es una transición válida desde VIEWED (ver LEAD_VALID_TRANSITIONS en el backend).
+  readonly canReject = computed(() => this.lead()?.status === LeadStatus.VIEWED);
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -125,18 +151,21 @@ export class ProviderLeadDetailComponent implements OnInit {
     });
   }
 
-  advance(): void {
-    const action = this.nextAction();
+  changeStatus(status: LeadStatus): void {
     const current = this.lead();
-    if (!action || !current) return;
+    if (!current) return;
 
     this.updating.set(true);
-    this.leadsService.updateStatus(current.id, action.status).subscribe({
+    this.errorMessage.set(null);
+    this.leadsService.updateStatus(current.id, status).subscribe({
       next: (updated) => {
         this.lead.set({ ...current, status: updated.status, contactedAt: updated.contactedAt });
         this.updating.set(false);
       },
-      error: () => this.updating.set(false),
+      error: () => {
+        this.updating.set(false);
+        this.errorMessage.set('No pudimos actualizar el estado del lead. Intenta nuevamente.');
+      },
     });
   }
 }

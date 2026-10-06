@@ -1,29 +1,6 @@
 import { Component, Input, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-const LABELS: Record<string, string> = {
-  // ServiceRequest
-  DRAFT: 'Borrador',
-  SUBMITTED: 'Enviada',
-  MATCHING: 'Buscando empresas',
-  MATCHED: 'Empresas encontradas',
-  IN_PROGRESS: 'En curso',
-  COMPLETED: 'Completada',
-  CANCELLED: 'Cancelada',
-  EXPIRED: 'Expirada',
-  // Lead
-  GENERATED: 'Generado',
-  DELIVERED: 'Nuevo',
-  VIEWED: 'Visto',
-  ACCEPTED: 'Aceptado',
-  REJECTED: 'Rechazado',
-  CONTACTED: 'Contactado',
-  CONVERTED: 'Convertido',
-  // Provider
-  PENDING: 'Pendiente',
-  ACTIVE: 'Activo',
-  SUSPENDED: 'Suspendido',
-};
+import { STATUS_LABELS } from '../../utils/labels';
 
 const COLORS: Record<string, string> = {
   DRAFT: '#9e9e9e',
@@ -80,6 +57,6 @@ export class StatusBadgeComponent {
     this.statusSignal.set(value);
   }
 
-  readonly label = computed(() => LABELS[this.statusSignal()] ?? this.statusSignal());
+  readonly label = computed(() => STATUS_LABELS[this.statusSignal()] ?? this.statusSignal());
   readonly color = computed(() => COLORS[this.statusSignal()] ?? '#9e9e9e');
 }

@@ -43,7 +43,9 @@ export class SupabaseStorageService {
           'Content-Type': params.mimeType,
           'x-upsert': 'true',
         },
-        body: new Uint8Array(params.buffer),
+        // Node's fetch acepta Buffer en runtime; el cast evita que los tipos de
+        // fetch (lib.dom) y Buffer (@types/node) choquen según la versión instalada.
+        body: params.buffer as unknown as BodyInit,
       });
     } catch (error) {
       this.logger.error('Error de red subiendo archivo a Supabase Storage', error as Error);

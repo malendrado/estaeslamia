@@ -11,6 +11,13 @@ import { AnalyticsService } from '../core/services/analytics.service';
 import { Category, Service } from '../core/models/models';
 
 const ACCENTS = ['var(--eslm-primary)', 'var(--eslm-accent)', 'var(--eslm-accent-2)', 'var(--eslm-accent-3)'];
+// Variantes AA-safe (4.5:1) de ACCENTS, para usar donde el color pinta texto en vez de borde/ícono decorativo.
+const ACCENTS_TEXT = [
+  'var(--eslm-primary-dark)',
+  'var(--eslm-accent-ink)',
+  'var(--eslm-accent-2-ink)',
+  'var(--eslm-accent-3)',
+];
 
 interface Stat {
   value: number;
@@ -78,6 +85,7 @@ const FAQS: Faq[] = [
           <div
             class="stack-chip"
             [style.background]="accentFor(i)"
+            [style.color]="onColorFor(i)"
             [style.transform]="'rotate(' + rotationFor(i) + 'deg)'"
           >
             <mat-icon>{{ cat.icon || 'star' }}</mat-icon>
@@ -126,7 +134,7 @@ const FAQS: Faq[] = [
         <div class="stats-grid">
           @for (stat of stats(); track stat.label; let i = $index) {
             <div class="stat">
-              <span class="stat-value" [style.color]="accentFor(i)">{{ stat.value }}{{ stat.suffix }}</span>
+              <span class="stat-value" [style.color]="accentTextFor(i)">{{ stat.value }}{{ stat.suffix }}</span>
               <span class="stat-label">{{ stat.label }}</span>
             </div>
           }
@@ -159,12 +167,12 @@ const FAQS: Faq[] = [
           <p>Elige el servicio, tu comuna y describe brevemente tu necesidad. Menos de 2 minutos.</p>
         </div>
         <div class="timeline-step">
-          <div class="step-marker" style="background: var(--eslm-accent)">2</div>
+          <div class="step-marker" style="background: var(--eslm-accent); color: var(--eslm-ink)">2</div>
           <h3>Buscamos empresas</h3>
           <p>Encontramos empresas y profesionales activos que ofrecen ese servicio en tu zona.</p>
         </div>
         <div class="timeline-step">
-          <div class="step-marker" style="background: var(--eslm-accent-2)">3</div>
+          <div class="step-marker" style="background: var(--eslm-accent-2); color: var(--eslm-ink)">3</div>
           <h3>Te contactan</h3>
           <p>Las empresas interesadas reciben tu solicitud y se ponen en contacto directamente contigo.</p>
         </div>
@@ -220,11 +228,13 @@ const FAQS: Faq[] = [
     <!-- PARA CLIENTES / PARA EMPRESAS -->
     <section class="split">
       <div class="split-panel panel-primary">
+        <mat-icon class="split-icon">person_search</mat-icon>
         <h3>Para clientes</h3>
         <p>Sin registro obligatorio, sin formularios eternos. Publica lo que necesitas y listo.</p>
         <a class="btn btn-light" routerLink="/solicitar">Solicitar un servicio</a>
       </div>
       <div class="split-panel panel-ink">
+        <mat-icon class="split-icon">storefront</mat-icon>
         <h3>Para empresas</h3>
         <p>Recibe oportunidades reales de clientes que buscan exactamente lo que ofreces, en tu zona.</p>
         <a class="btn btn-light" routerLink="/proveedores/registro">Registrar mi empresa</a>
@@ -261,7 +271,7 @@ const FAQS: Faq[] = [
     <!-- FAQ -->
     <section class="faq">
       <h2>Preguntas frecuentes</h2>
-      <mat-accordion>
+      <mat-accordion displayMode="flat">
         @for (faq of faqs; track faq.question) {
           <mat-expansion-panel>
             <mat-expansion-panel-header>
@@ -301,7 +311,7 @@ const FAQS: Faq[] = [
       }
       .btn-primary {
         background: var(--eslm-accent);
-        color: #fff;
+        color: var(--eslm-ink);
       }
       .btn-outline {
         border: 2px solid var(--eslm-ink);
@@ -349,7 +359,6 @@ const FAQS: Faq[] = [
         gap: 0.5rem;
         padding: 0.9rem 1.3rem;
         border-radius: 16px;
-        color: #fff;
         font-weight: 600;
         box-shadow: 0 12px 24px -8px rgba(22, 33, 62, 0.35);
         width: fit-content;
@@ -610,19 +619,31 @@ const FAQS: Faq[] = [
 
       /* SPLIT */
       .split {
-        max-width: none;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0;
-        padding: 0;
+        gap: 1.5rem;
       }
       .split-panel {
-        padding: 3.5rem 2.5rem;
+        padding: 2.5rem 2rem;
+        border-radius: 20px;
         color: #fff;
+        box-shadow: 0 16px 32px -16px rgba(22, 33, 62, 0.3);
+        transition: transform 0.15s ease;
+      }
+      .split-panel:hover {
+        transform: translateY(-3px);
+      }
+      .split-icon {
+        font-size: 2rem;
+        width: 2rem;
+        height: 2rem;
+        opacity: 0.85;
+        margin-bottom: 0.75rem;
       }
       .split-panel h3 {
-        font-size: 1.6rem;
-        margin-bottom: 0.75rem;
+        font-size: 1.5rem;
+        margin-bottom: 0.6rem;
+        color: #fff;
       }
       .split-panel p {
         opacity: 0.9;
@@ -664,8 +685,36 @@ const FAQS: Faq[] = [
         max-width: 760px;
       }
       .faq mat-accordion {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
         margin-top: 1.5rem;
+      }
+      .faq ::ng-deep mat-expansion-panel {
+        border-radius: 16px !important;
+        border: 1px solid #eee;
+        box-shadow: 0 2px 10px rgba(22, 33, 62, 0.05) !important;
+      }
+      .faq ::ng-deep .mat-expansion-panel-header {
+        padding: 0 1.5rem;
+        height: 68px !important;
+      }
+      .faq ::ng-deep .mat-expansion-panel-header:hover {
+        background: #fafaf8 !important;
+      }
+      .faq ::ng-deep .mat-expansion-panel-header-title {
+        font-family: var(--eslm-font-display);
+        font-weight: 600;
+        font-size: 1.02rem;
+        color: var(--eslm-ink);
+      }
+      .faq ::ng-deep .mat-expansion-panel-body {
+        padding: 0 1.5rem 1.4rem;
+        color: #4a5170;
+        line-height: 1.6;
+      }
+      .faq ::ng-deep .mat-expansion-indicator::after {
+        color: var(--eslm-primary);
       }
 
       /* FINAL CTA */
@@ -741,6 +790,18 @@ export class HomeComponent implements OnInit {
 
   accentFor(index: number): string {
     return ACCENTS[index % ACCENTS.length];
+  }
+
+  accentTextFor(index: number): string {
+    return ACCENTS_TEXT[index % ACCENTS_TEXT.length];
+  }
+
+  // Color de texto legible (4.5:1+) sobre el fondo que da accentFor(i):
+  // primary/accent-3 son oscuros y pasan con blanco; accent/accent-2 son
+  // demasiado claros para texto blanco y necesitan texto oscuro (ink).
+  onColorFor(index: number): string {
+    const isLight = index % ACCENTS.length === 1 || index % ACCENTS.length === 2;
+    return isLight ? 'var(--eslm-ink)' : '#fff';
   }
 
   rotationFor(index: number): number {

@@ -33,7 +33,10 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
           <div class="providers">
             @for (p of detail()!.providers; track p.id) {
               <div class="provider-card">
-                <strong>{{ p.businessName }}</strong>
+                <div class="provider-card-header">
+                  <strong>{{ p.businessName }}</strong>
+                  <app-status-badge [status]="p.leadStatus"></app-status-badge>
+                </div>
                 @if (p.description) {
                   <p class="desc">{{ p.description }}</p>
                 }
@@ -81,6 +84,13 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
         border: 1px solid #eee;
         border-radius: 8px;
         padding: 1rem;
+      }
+      .provider-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
       }
       .desc {
         color: #555;

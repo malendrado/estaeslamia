@@ -4,7 +4,8 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatChipsModule, MatChipSelectionChange } from '@angular/material/chips';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { forkJoin } from 'rxjs';
 import { ProvidersService } from '../../core/services/providers.service';
 import { CatalogService } from '../../core/services/catalog.service';
@@ -21,7 +22,8 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
-    MatCheckboxModule,
+    MatChipsModule,
+    MatExpansionModule,
     LoadingComponent,
     StatusBadgeComponent,
   ],
@@ -49,14 +51,14 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
             <input
               #logoInput
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/svg+xml"
               hidden
               (change)="onLogoSelected($event)"
             />
             <button mat-stroked-button type="button" (click)="logoInput.click()" [disabled]="uploadingLogo()">
               {{ uploadingLogo() ? 'Subiendo...' : provider()!.logoUrl ? 'Cambiar logo' : 'Subir logo' }}
             </button>
-            <span class="logo-hint">JPG, PNG o WEBP · máx. 2 MB</span>
+            <span class="logo-hint">JPG, PNG, WEBP o SVG · máx. 2 MB</span>
             @if (logoError()) {
               <span class="logo-error">{{ logoError() }}</span>
             }
@@ -94,21 +96,30 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         </form>
 
         <h3>Servicios que ofreces</h3>
-        <div class="checkbox-groups">
+        <mat-accordion multi class="chip-accordion">
           @for (cat of categories(); track cat.id) {
-            <div class="group">
-              <h4>{{ cat.name }}</h4>
-              @for (svc of servicesByCategory(cat.id); track svc.id) {
-                <mat-checkbox
-                  [checked]="selectedServiceIds.has(svc.id)"
-                  (change)="toggleService(svc.id, $event.checked)"
-                >
-                  {{ svc.name }}
-                </mat-checkbox>
-              }
-            </div>
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>{{ cat.name }}</mat-panel-title>
+                <mat-panel-description>
+                  @if (selectedServicesCount(cat.id) > 0) {
+                    {{ selectedServicesCount(cat.id) }} seleccionado{{ selectedServicesCount(cat.id) === 1 ? '' : 's' }}
+                  }
+                </mat-panel-description>
+              </mat-expansion-panel-header>
+              <mat-chip-listbox multiple [attr.aria-label]="'Servicios de ' + cat.name">
+                @for (svc of servicesByCategory(cat.id); track svc.id) {
+                  <mat-chip-option
+                    [selected]="selectedServiceIds.has(svc.id)"
+                    (selectionChange)="toggleService(svc.id, $event)"
+                  >
+                    {{ svc.name }}
+                  </mat-chip-option>
+                }
+              </mat-chip-listbox>
+            </mat-expansion-panel>
           }
-        </div>
+        </mat-accordion>
         <button mat-flat-button color="primary" (click)="saveServices()" [disabled]="savingServices()">
           {{ savingServices() ? 'Guardando...' : 'Guardar servicios' }}
         </button>
@@ -117,21 +128,30 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         }
 
         <h3>Comunas donde trabajas</h3>
-        <div class="checkbox-groups">
+        <mat-accordion multi class="chip-accordion">
           @for (region of regions(); track region.id) {
-            <div class="group">
-              <h4>{{ region.name }}</h4>
-              @for (commune of communesByRegion(region.id); track commune.id) {
-                <mat-checkbox
-                  [checked]="selectedCommuneIds.has(commune.id)"
-                  (change)="toggleCommune(commune.id, $event.checked)"
-                >
-                  {{ commune.name }}
-                </mat-checkbox>
-              }
-            </div>
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>{{ region.name }}</mat-panel-title>
+                <mat-panel-description>
+                  @if (selectedCommunesCount(region.id) > 0) {
+                    {{ selectedCommunesCount(region.id) }} seleccionada{{ selectedCommunesCount(region.id) === 1 ? '' : 's' }}
+                  }
+                </mat-panel-description>
+              </mat-expansion-panel-header>
+              <mat-chip-listbox multiple [attr.aria-label]="'Comunas de ' + region.name">
+                @for (commune of communesByRegion(region.id); track commune.id) {
+                  <mat-chip-option
+                    [selected]="selectedCommuneIds.has(commune.id)"
+                    (selectionChange)="toggleCommune(commune.id, $event)"
+                  >
+                    {{ commune.name }}
+                  </mat-chip-option>
+                }
+              </mat-chip-listbox>
+            </mat-expansion-panel>
           }
-        </div>
+        </mat-accordion>
         <button mat-flat-button color="primary" (click)="saveCommunes()" [disabled]="savingCommunes()">
           {{ savingCommunes() ? 'Guardando...' : 'Guardar comunas' }}
         </button>
@@ -143,9 +163,6 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `,
   styles: [
     `
-      .profile {
-        max-width: 720px;
-      }
       .logo-section {
         display: flex;
         align-items: center;
@@ -203,26 +220,19 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         gap: 0.5rem 1rem;
         align-items: start;
       }
+      .form-grid mat-form-field {
+        width: 100%;
+        margin-bottom: 0;
+      }
       .full {
         grid-column: 1 / -1;
       }
-      .checkbox-groups {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 1rem;
+      .chip-accordion {
+        display: block;
         margin-bottom: 1rem;
       }
-      .group {
-        border: 1px solid #eee;
-        border-radius: 8px;
-        padding: 0.75rem;
-        display: flex;
-        flex-direction: column;
-      }
-      .group h4 {
-        margin: 0 0 0.5rem;
-        font-size: 0.85rem;
-        color: var(--eslm-primary);
+      .chip-accordion mat-chip-listbox {
+        padding: 0.25rem 0 0.75rem;
       }
       .saved {
         color: var(--eslm-primary);
@@ -302,16 +312,24 @@ export class ProviderProfileComponent implements OnInit {
     return this.services().filter((s) => s.categoryId === categoryId);
   }
 
+  selectedServicesCount(categoryId: string): number {
+    return this.servicesByCategory(categoryId).filter((s) => this.selectedServiceIds.has(s.id)).length;
+  }
+
   communesByRegion(regionId: string): Commune[] {
     return this.communes().filter((c) => c.regionId === regionId);
   }
 
-  toggleService(serviceId: string, checked: boolean): void {
-    checked ? this.selectedServiceIds.add(serviceId) : this.selectedServiceIds.delete(serviceId);
+  selectedCommunesCount(regionId: string): number {
+    return this.communesByRegion(regionId).filter((c) => this.selectedCommuneIds.has(c.id)).length;
   }
 
-  toggleCommune(communeId: string, checked: boolean): void {
-    checked ? this.selectedCommuneIds.add(communeId) : this.selectedCommuneIds.delete(communeId);
+  toggleService(serviceId: string, change: MatChipSelectionChange): void {
+    change.selected ? this.selectedServiceIds.add(serviceId) : this.selectedServiceIds.delete(serviceId);
+  }
+
+  toggleCommune(communeId: string, change: MatChipSelectionChange): void {
+    change.selected ? this.selectedCommuneIds.add(communeId) : this.selectedCommuneIds.delete(communeId);
   }
 
   onLogoSelected(event: Event): void {
@@ -320,9 +338,9 @@ export class ProviderProfileComponent implements OnInit {
     if (!file) return;
 
     // Validación en el cliente para dar feedback inmediato (el backend la repite igual, esto no es seguridad).
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
     if (!allowedTypes.includes(file.type)) {
-      this.logoError.set('Solo se aceptan imágenes JPG, PNG o WEBP.');
+      this.logoError.set('Solo se aceptan imágenes JPG, PNG, WEBP o SVG.');
       input.value = '';
       return;
     }

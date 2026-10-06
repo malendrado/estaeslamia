@@ -8,11 +8,21 @@ import { Lead, LeadStatus } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 
 @Component({
   selector: 'app-provider-leads-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatChipsModule, StatusBadgeComponent, LoadingComponent, EmptyStateComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    MatButtonModule,
+    MatChipsModule,
+    StatusBadgeComponent,
+    LoadingComponent,
+    EmptyStateComponent,
+    ErrorStateComponent,
+  ],
   template: `
     <div class="summary-cards">
       <div class="card" style="border-top-color: var(--eslm-primary)">
@@ -24,17 +34,19 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
         <span class="label">Recibidos</span>
       </div>
       <div class="card" style="border-top-color: var(--eslm-accent-2)">
-        <span class="value" style="color: var(--eslm-accent-2)">{{ counts().contacted }}</span>
+        <span class="value" style="color: var(--eslm-accent-2-ink)">{{ counts().contacted }}</span>
         <span class="label">Contactados</span>
       </div>
       <div class="card" style="border-top-color: var(--eslm-accent)">
-        <span class="value" style="color: var(--eslm-accent)">{{ counts().converted }}</span>
+        <span class="value" style="color: var(--eslm-accent-ink)">{{ counts().converted }}</span>
         <span class="label">Convertidos</span>
       </div>
     </div>
 
     @if (loading()) {
       <app-loading></app-loading>
+    } @else if (hasError()) {
+      <app-error-state message="No pudimos cargar tus leads. Intenta recargar la página."></app-error-state>
     } @else if (leads().length === 0) {
       <app-empty-state icon="inbox" message="Todavía no tienes leads. Aparecerán aquí cuando un cliente busque tus servicios.">
       </app-empty-state>
@@ -84,6 +96,11 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
         display: flex;
         flex-direction: column;
         align-items: center;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -14px rgba(22, 33, 62, 0.25);
       }
       .card .value {
         font-size: 1.8rem;
@@ -96,6 +113,8 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
       }
       .table-scroll {
         overflow-x: auto;
+        border: 1px solid #eee;
+        border-radius: 12px;
       }
       .leads-table {
         width: 100%;
@@ -114,6 +133,15 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
         border-bottom: 1px solid #f2f2f2;
         vertical-align: top;
       }
+      .leads-table tbody tr {
+        transition: background 0.1s ease;
+      }
+      .leads-table tbody tr:hover {
+        background: #fafaf8;
+      }
+      .leads-table tr:last-child td {
+        border-bottom: none;
+      }
       .desc {
         max-width: 280px;
         overflow: hidden;
@@ -126,6 +154,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 export class ProviderLeadsListComponent implements OnInit {
   readonly leads = signal<Lead[]>([]);
   readonly loading = signal(true);
+  readonly hasError = signal(false);
 
   readonly counts = computed(() => {
     const all = this.leads();
@@ -145,7 +174,10 @@ export class ProviderLeadsListComponent implements OnInit {
         this.leads.set(leads);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => {
+        this.loading.set(false);
+        this.hasError.set(true);
+      },
     });
   }
 }

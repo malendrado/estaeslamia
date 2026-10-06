@@ -8,7 +8,9 @@ import { ServiceRequest, ServiceRequestStatus } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { PagerComponent } from '../../shared/components/pager/pager.component';
+import { STATUS_LABELS } from '../../shared/utils/labels';
 
 const ALL_STATUSES = Object.values(ServiceRequestStatus);
 const PAGE_SIZE = 20;
@@ -24,6 +26,7 @@ const PAGE_SIZE = 20;
     StatusBadgeComponent,
     LoadingComponent,
     EmptyStateComponent,
+    ErrorStateComponent,
     PagerComponent,
   ],
   template: `
@@ -33,7 +36,7 @@ const PAGE_SIZE = 20;
         <mat-select [(ngModel)]="statusFilter" (selectionChange)="goToPage(1)">
           <mat-option [value]="undefined">Todos</mat-option>
           @for (s of statuses; track s) {
-            <mat-option [value]="s">{{ s }}</mat-option>
+            <mat-option [value]="s">{{ statusLabels[s] ?? s }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
@@ -41,6 +44,8 @@ const PAGE_SIZE = 20;
 
     @if (loading()) {
       <app-loading></app-loading>
+    } @else if (hasError()) {
+      <app-error-state message="No pudimos cargar las solicitudes. Intenta recargar la página."></app-error-state>
     } @else if (requests().length === 0) {
       <app-empty-state icon="assignment" message="No hay solicitudes con este filtro."></app-empty-state>
     } @else {
@@ -68,13 +73,16 @@ const PAGE_SIZE = 20;
               </td>
               <td><app-status-badge [status]="req.status"></app-status-badge></td>
               <td>
-                <mat-form-field appearance="outline" class="compact">
-                  <mat-select [value]="req.status" (selectionChange)="changeStatus(req, $event.value)">
-                    @for (s of statuses; track s) {
-                      <mat-option [value]="s">{{ s }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <select
+                  class="status-select"
+                  [attr.aria-label]="'Cambiar estado de la solicitud de ' + req.contactName"
+                  [value]="req.status"
+                  (change)="changeStatus(req, $any($event.target).value)"
+                >
+                  @for (s of statuses; track s) {
+                    <option [value]="s">{{ statusLabels[s] ?? s }}</option>
+                  }
+                </select>
               </td>
             </tr>
           }
@@ -92,6 +100,17 @@ const PAGE_SIZE = 20;
       }
       .table-scroll {
         overflow-x: auto;
+        border: 1px solid #eee;
+        border-radius: 12px;
+      }
+      .data-table tbody tr {
+        transition: background 0.1s ease;
+      }
+      .data-table tbody tr:hover {
+        background: #fafaf8;
+      }
+      .data-table tr:last-child td {
+        border-bottom: none;
       }
       .data-table {
         width: 100%;
@@ -111,11 +130,25 @@ const PAGE_SIZE = 20;
         vertical-align: top;
         font-size: 0.9rem;
       }
-      .compact {
-        width: 160px;
+      .status-select {
+        font-family: inherit;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--eslm-ink);
+        padding: 0.35rem 1.8rem 0.35rem 0.8rem;
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23757575'/%3E%3C/svg%3E") no-repeat right 0.8rem center;
+        appearance: none;
+        cursor: pointer;
+        max-width: 160px;
       }
-      ::ng-deep .compact .mat-mdc-text-field-wrapper {
-        height: 40px;
+      .status-select:hover {
+        border-color: var(--eslm-primary);
+      }
+      .status-select:focus-visible {
+        outline: 2px solid var(--eslm-primary);
+        outline-offset: 1px;
       }
     `,
   ],
@@ -123,10 +156,12 @@ const PAGE_SIZE = 20;
 export class AdminServiceRequestsComponent implements OnInit {
   readonly PAGE_SIZE = PAGE_SIZE;
   readonly statuses = ALL_STATUSES;
+  readonly statusLabels = STATUS_LABELS;
   readonly requests = signal<ServiceRequest[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
   readonly loading = signal(true);
+  readonly hasError = signal(false);
   statusFilter: ServiceRequestStatus | undefined;
 
   constructor(private readonly serviceRequestsService: ServiceRequestsService) {}
@@ -142,6 +177,7 @@ export class AdminServiceRequestsComponent implements OnInit {
 
   reload(): void {
     this.loading.set(true);
+    this.hasError.set(false);
     this.serviceRequestsService
       .getAllForAdmin({ status: this.statusFilter, page: this.page(), limit: PAGE_SIZE })
       .subscribe({
@@ -150,7 +186,10 @@ export class AdminServiceRequestsComponent implements OnInit {
           this.total.set(result.total);
           this.loading.set(false);
         },
-        error: () => this.loading.set(false),
+        error: () => {
+          this.loading.set(false);
+          this.hasError.set(true);
+        },
       });
   }
 

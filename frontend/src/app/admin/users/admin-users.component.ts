@@ -9,7 +9,9 @@ import { User, UserRole } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { PagerComponent } from '../../shared/components/pager/pager.component';
+import { ROLE_LABELS } from '../../shared/utils/labels';
 
 const ALL_ROLES = Object.values(UserRole);
 const PAGE_SIZE = 20;
@@ -26,6 +28,7 @@ const PAGE_SIZE = 20;
     StatusBadgeComponent,
     LoadingComponent,
     EmptyStateComponent,
+    ErrorStateComponent,
     PagerComponent,
   ],
   template: `
@@ -35,7 +38,7 @@ const PAGE_SIZE = 20;
         <mat-select [(ngModel)]="roleFilter" (selectionChange)="goToPage(1)">
           <mat-option [value]="undefined">Todos</mat-option>
           @for (r of roles; track r) {
-            <mat-option [value]="r">{{ r }}</mat-option>
+            <mat-option [value]="r">{{ roleLabels[r] }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
@@ -52,6 +55,8 @@ const PAGE_SIZE = 20;
 
     @if (loading()) {
       <app-loading></app-loading>
+    } @else if (hasError()) {
+      <app-error-state message="No pudimos cargar los usuarios. Intenta recargar la página."></app-error-state>
     } @else if (users().length === 0) {
       <app-empty-state icon="people" message="No hay usuarios con este filtro."></app-empty-state>
     } @else {
@@ -71,13 +76,13 @@ const PAGE_SIZE = 20;
               <tr>
                 <td>{{ user.name }}</td>
                 <td>{{ user.email }}</td>
-                <td>{{ user.role }}</td>
+                <td>{{ roleLabels[user.role] }}</td>
                 <td><app-status-badge [status]="user.isActive ? 'ACTIVE' : 'SUSPENDED'"></app-status-badge></td>
                 <td>
                   @if (user.isActive) {
-                    <button mat-button color="warn" (click)="toggle(user, false)">Suspender</button>
+                    <button mat-stroked-button color="warn" (click)="toggle(user, false)">Suspender</button>
                   } @else if (user.hasPassword) {
-                    <button mat-button color="primary" (click)="toggle(user, true)">Reactivar</button>
+                    <button mat-stroked-button color="primary" (click)="toggle(user, true)">Reactivar</button>
                   } @else {
                     <span class="hint">Cuenta sin registrar</span>
                   }
@@ -100,6 +105,17 @@ const PAGE_SIZE = 20;
       }
       .table-scroll {
         overflow-x: auto;
+        border: 1px solid #eee;
+        border-radius: 12px;
+      }
+      .data-table tbody tr {
+        transition: background 0.1s ease;
+      }
+      .data-table tbody tr:hover {
+        background: #fafaf8;
+      }
+      .data-table tr:last-child td {
+        border-bottom: none;
       }
       .data-table {
         width: 100%;
@@ -128,10 +144,12 @@ const PAGE_SIZE = 20;
 export class AdminUsersComponent implements OnInit {
   readonly PAGE_SIZE = PAGE_SIZE;
   readonly roles = ALL_ROLES;
+  readonly roleLabels = ROLE_LABELS;
   readonly users = signal<User[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
   readonly loading = signal(true);
+  readonly hasError = signal(false);
   roleFilter: UserRole | undefined;
   activeFilter: boolean | undefined;
 
@@ -148,6 +166,7 @@ export class AdminUsersComponent implements OnInit {
 
   reload(): void {
     this.loading.set(true);
+    this.hasError.set(false);
     this.usersService
       .getAllForAdmin({ role: this.roleFilter, isActive: this.activeFilter, page: this.page(), limit: PAGE_SIZE })
       .subscribe({
@@ -156,7 +175,10 @@ export class AdminUsersComponent implements OnInit {
           this.total.set(result.total);
           this.loading.set(false);
         },
-        error: () => this.loading.set(false),
+        error: () => {
+          this.loading.set(false);
+          this.hasError.set(true);
+        },
       });
   }
 

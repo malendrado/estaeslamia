@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 /**
  * Gestión de usuarios para el panel de Admin (brief original, secciones 4 y 20:
@@ -21,19 +21,13 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @ApiQuery({ name: 'role', required: false, enum: UserRole })
-  @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiOperation({ summary: '[ADMIN] Listado paginado de usuarios, filtrable por rol y estado' })
-  findAll(
-    @Query() pagination: PaginationQueryDto,
-    @Query('role') role?: UserRole,
-    @Query('isActive') isActive?: string,
-  ) {
+  findAll(@Query() query: FindUsersQueryDto) {
     return this.usersService.findAllForAdmin({
-      role,
-      isActive: isActive === undefined ? undefined : isActive === 'true',
-      page: pagination.page,
-      limit: pagination.limit,
+      role: query.role,
+      isActive: query.isActive,
+      page: query.page,
+      limit: query.limit,
     });
   }
 

@@ -2,13 +2,13 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query, UseGuards } 
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { LeadsService } from './leads.service';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
+import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user.type';
 import { LeadStatus, UserRole } from '../../common/enums';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 @ApiTags('leads')
 @Controller('leads')
@@ -54,15 +54,14 @@ export class LeadsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
-  @ApiQuery({ name: 'status', required: false, enum: LeadStatus })
-  @ApiQuery({ name: 'providerId', required: false })
   @ApiOperation({ summary: '[ADMIN] Listado paginado de leads, filtrable por estado y provider' })
-  findAllForAdmin(
-    @Query() pagination: PaginationQueryDto,
-    @Query('status') status?: LeadStatus,
-    @Query('providerId') providerId?: string,
-  ) {
-    return this.leadsService.findAllForAdmin({ status, providerId, page: pagination.page, limit: pagination.limit });
+  findAllForAdmin(@Query() query: FindLeadsQueryDto) {
+    return this.leadsService.findAllForAdmin({
+      status: query.status,
+      providerId: query.providerId,
+      page: query.page,
+      limit: query.limit,
+    });
   }
 
   @Get('by-service-request/:serviceRequestId')

@@ -16,7 +16,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ProvidersService } from './providers.service';
 import { RegisterProviderDto } from './dto/register-provider.dto';
@@ -24,13 +24,13 @@ import { UpdateProviderDto } from './dto/update-provider.dto';
 import { SetProviderServicesDto } from './dto/set-provider-services.dto';
 import { SetProviderCommunesDto } from './dto/set-provider-communes.dto';
 import { UpdateProviderStatusDto } from './dto/update-provider-status.dto';
+import { FindProvidersQueryDto } from './dto/find-providers-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user.type';
-import { ProviderStatus, UserRole } from '../../common/enums';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { UserRole } from '../../common/enums';
 import { AuthService } from '../auth/auth.service';
 import { UsersService } from '../users/users.service';
 
@@ -83,9 +83,9 @@ export class ProvidersController {
     FileInterceptor('file', {
       limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
       fileFilter: (_req, file, callback) => {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
         if (!allowed.includes(file.mimetype)) {
-          callback(new BadRequestException('Solo se aceptan imágenes JPG, PNG o WEBP'), false);
+          callback(new BadRequestException('Solo se aceptan imágenes JPG, PNG, WEBP o SVG'), false);
           return;
         }
         callback(null, true);
@@ -93,7 +93,7 @@ export class ProvidersController {
     }),
   )
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: '[PROVIDER] Subir/reemplazar el logo de la empresa (JPG/PNG/WEBP, máx. 2MB)' })
+  @ApiOperation({ summary: '[PROVIDER] Subir/reemplazar el logo de la empresa (JPG/PNG/WEBP/SVG, máx. 2MB)' })
   @ApiResponse({ status: 201, description: 'Logo subido, devuelve el Provider actualizado con el nuevo logoUrl' })
   @ApiResponse({ status: 400, description: 'Archivo faltante, tipo no permitido, o subida de archivos no configurada en este ambiente' })
   async uploadLogo(
@@ -132,10 +132,9 @@ export class ProvidersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
-  @ApiQuery({ name: 'status', required: false, enum: ProviderStatus })
   @ApiOperation({ summary: '[ADMIN] Listado paginado de providers, opcionalmente filtrado por estado' })
-  findAllForAdmin(@Query() pagination: PaginationQueryDto, @Query('status') status?: ProviderStatus) {
-    return this.providersService.findAllForAdmin(status, pagination.page, pagination.limit);
+  findAllForAdmin(@Query() query: FindProvidersQueryDto) {
+    return this.providersService.findAllForAdmin(query.status, query.page, query.limit);
   }
 
   @Get(':id')

@@ -18,6 +18,27 @@ import { SupabaseStorageService } from '../../common/services/supabase-storage.s
 
 const SALT_ROUNDS = 10;
 
+/**
+ * SVG es XML: un archivo subido por un provider puede traer <script> o
+ * atributos on*="..." que, si alguien abre la URL del storage directo (no
+ * vía <img>, donde el navegador nunca ejecuta el contenido embebido), sí se
+ * ejecutarían. Se quita lo ejecutable antes de subirlo.
+ * ponytail: limpieza por regex, no un parser XML real — cubre los vectores
+ * conocidos (script, on*=, foreignObject, javascript:) pero no es a prueba de
+ * XML malformado a propósito. Si esto se vuelve crítico, migrar a DOMPurify.
+ */
+function sanitizeSvg(buffer: Buffer): Buffer {
+  const cleaned = buffer
+    .toString('utf8')
+    .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, '')
+    .replace(/\son\w+\s*=\s*"(?:[^"]*)"/gi, '')
+    .replace(/\son\w+\s*=\s*'(?:[^']*)'/gi, '')
+    .replace(/(href|xlink:href)\s*=\s*"javascript:[^"]*"/gi, '$1="#"')
+    .replace(/(href|xlink:href)\s*=\s*'javascript:[^']*'/gi, "$1='#'");
+  return Buffer.from(cleaned, 'utf8');
+}
+
 @Injectable()
 export class ProvidersService {
   constructor(
@@ -144,10 +165,13 @@ export class ProvidersService {
       'image/jpeg': 'jpg',
       'image/png': 'png',
       'image/webp': 'webp',
+      'image/svg+xml': 'svg',
     };
 
+    const buffer = file.mimetype === 'image/svg+xml' ? sanitizeSvg(file.buffer) : file.buffer;
+
     const logoUrl = await this.storageService.uploadPublicFile({
-      buffer: file.buffer,
+      buffer,
       mimeType: file.mimetype,
       extension: extensionByMime[file.mimetype] ?? 'bin',
       folder: `providers/${provider.id}`,

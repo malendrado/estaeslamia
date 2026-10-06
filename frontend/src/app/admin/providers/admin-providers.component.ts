@@ -9,7 +9,9 @@ import { Provider, ProviderStatus } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { PagerComponent } from '../../shared/components/pager/pager.component';
+import { STATUS_LABELS } from '../../shared/utils/labels';
 
 const ALL_STATUSES = Object.values(ProviderStatus);
 const PAGE_SIZE = 20;
@@ -26,6 +28,7 @@ const PAGE_SIZE = 20;
     StatusBadgeComponent,
     LoadingComponent,
     EmptyStateComponent,
+    ErrorStateComponent,
     PagerComponent,
   ],
   template: `
@@ -35,7 +38,7 @@ const PAGE_SIZE = 20;
         <mat-select [(ngModel)]="statusFilter" (selectionChange)="goToPage(1)">
           <mat-option [value]="undefined">Todos</mat-option>
           @for (s of statuses; track s) {
-            <mat-option [value]="s">{{ s }}</mat-option>
+            <mat-option [value]="s">{{ statusLabels[s] ?? s }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
@@ -43,6 +46,8 @@ const PAGE_SIZE = 20;
 
     @if (loading()) {
       <app-loading></app-loading>
+    } @else if (hasError()) {
+      <app-error-state message="No pudimos cargar las empresas. Intenta recargar la página."></app-error-state>
     } @else if (providers().length === 0) {
       <app-empty-state icon="storefront" message="No hay empresas con este filtro."></app-empty-state>
     } @else {
@@ -67,17 +72,17 @@ const PAGE_SIZE = 20;
               <td><app-status-badge [status]="provider.status"></app-status-badge></td>
               <td class="actions">
                 @if (provider.status === ProviderStatus.PENDING) {
-                  <button mat-button color="primary" (click)="setStatus(provider, ProviderStatus.ACTIVE)">Aprobar</button>
-                  <button mat-button color="warn" (click)="setStatus(provider, ProviderStatus.REJECTED)">Rechazar</button>
+                  <button mat-stroked-button color="primary" (click)="setStatus(provider, ProviderStatus.ACTIVE)">Aprobar</button>
+                  <button mat-stroked-button color="warn" (click)="setStatus(provider, ProviderStatus.REJECTED)">Rechazar</button>
                 }
                 @if (provider.status === ProviderStatus.ACTIVE) {
-                  <button mat-button color="warn" (click)="setStatus(provider, ProviderStatus.SUSPENDED)">Suspender</button>
+                  <button mat-stroked-button color="warn" (click)="setStatus(provider, ProviderStatus.SUSPENDED)">Suspender</button>
                 }
                 @if (provider.status === ProviderStatus.SUSPENDED) {
-                  <button mat-button color="primary" (click)="setStatus(provider, ProviderStatus.ACTIVE)">Reactivar</button>
+                  <button mat-stroked-button color="primary" (click)="setStatus(provider, ProviderStatus.ACTIVE)">Reactivar</button>
                 }
                 @if (provider.status === ProviderStatus.REJECTED) {
-                  <button mat-button color="primary" (click)="setStatus(provider, ProviderStatus.PENDING)">Reconsiderar</button>
+                  <button mat-stroked-button color="primary" (click)="setStatus(provider, ProviderStatus.PENDING)">Reconsiderar</button>
                 }
               </td>
             </tr>
@@ -96,6 +101,17 @@ const PAGE_SIZE = 20;
       }
       .table-scroll {
         overflow-x: auto;
+        border: 1px solid #eee;
+        border-radius: 12px;
+      }
+      .data-table tbody tr {
+        transition: background 0.1s ease;
+      }
+      .data-table tbody tr:hover {
+        background: #fafaf8;
+      }
+      .data-table tr:last-child td {
+        border-bottom: none;
       }
       .data-table {
         width: 100%;
@@ -116,6 +132,8 @@ const PAGE_SIZE = 20;
       }
       .actions {
         white-space: nowrap;
+        display: flex;
+        gap: 0.5rem;
       }
     `,
   ],
@@ -124,10 +142,12 @@ export class AdminProvidersComponent implements OnInit {
   readonly ProviderStatus = ProviderStatus;
   readonly PAGE_SIZE = PAGE_SIZE;
   readonly statuses = ALL_STATUSES;
+  readonly statusLabels = STATUS_LABELS;
   readonly providers = signal<Provider[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
   readonly loading = signal(true);
+  readonly hasError = signal(false);
   statusFilter: ProviderStatus | undefined;
 
   constructor(private readonly providersService: ProvidersService) {}
@@ -143,13 +163,17 @@ export class AdminProvidersComponent implements OnInit {
 
   reload(): void {
     this.loading.set(true);
+    this.hasError.set(false);
     this.providersService.getAllForAdmin(this.statusFilter, this.page(), PAGE_SIZE).subscribe({
       next: (result) => {
         this.providers.set(result.data);
         this.total.set(result.total);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => {
+        this.loading.set(false);
+        this.hasError.set(true);
+      },
     });
   }
 

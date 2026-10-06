@@ -1,17 +1,17 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ServiceRequestsService } from './service-requests.service';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { UpdateServiceRequestStatusDto } from './dto/update-service-request-status.dto';
+import { FindServiceRequestsQueryDto } from './dto/find-service-requests-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user.type';
-import { ServiceRequestStatus, UserRole } from '../../common/enums';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { UserRole } from '../../common/enums';
 
 @ApiTags('service-requests')
 @Controller('service-requests')
@@ -66,22 +66,14 @@ export class ServiceRequestsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
-  @ApiQuery({ name: 'status', required: false, enum: ServiceRequestStatus })
-  @ApiQuery({ name: 'serviceId', required: false })
-  @ApiQuery({ name: 'communeId', required: false })
   @ApiOperation({ summary: '[ADMIN] Listado paginado de solicitudes, filtrable por estado/servicio/comuna' })
-  findAllForAdmin(
-    @Query() pagination: PaginationQueryDto,
-    @Query('status') status?: ServiceRequestStatus,
-    @Query('serviceId') serviceId?: string,
-    @Query('communeId') communeId?: string,
-  ) {
+  findAllForAdmin(@Query() query: FindServiceRequestsQueryDto) {
     return this.serviceRequestsService.findAllForAdmin({
-      status,
-      serviceId,
-      communeId,
-      page: pagination.page,
-      limit: pagination.limit,
+      status: query.status,
+      serviceId: query.serviceId,
+      communeId: query.communeId,
+      page: query.page,
+      limit: query.limit,
     });
   }
 

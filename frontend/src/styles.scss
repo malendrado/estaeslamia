@@ -1,9 +1,18 @@
 html, body {
   height: 100%;
   margin: 0;
-  font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Barlow', 'Helvetica Neue', sans-serif;
   background: var(--eslm-bg);
   color: var(--eslm-ink);
+}
+
+/* Los controles de formulario nativos (button, input, select, textarea) no
+   heredan font-family del body por defecto en ningún navegador — usan la
+   fuente del sistema salvo que se resetee. Sin esto, todos los botones,
+   inputs y selects de Angular Material (que envuelven estos elementos
+   nativos) ignoran Barlow y caen a la fuente del SO. */
+button, input, select, textarea, optgroup {
+  font-family: inherit;
 }
 
 :root {
@@ -15,9 +24,14 @@ html, body {
   --eslm-accent: #ff6b4a;
   --eslm-accent-2: #ffb100;
   --eslm-accent-3: #6c4ab6;
+  /* Mismo hue que accent/accent-2, oscurecido para pasar 4.5:1 AA como color
+     de texto sobre --eslm-bg/blanco (accent y accent-2 solo cumplen ~2.8:1 y
+     ~1.9:1 — válidos para bordes/iconos decorativos, no para texto). */
+  --eslm-accent-ink: #c1472b;
+  --eslm-accent-2-ink: #946200;
 
-  --eslm-font-display: 'Fraunces', Georgia, serif;
-  --eslm-font-body: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif;
+  --eslm-font-display: 'Barlow', 'Helvetica Neue', sans-serif;
+  --eslm-font-body: 'Barlow', 'Helvetica Neue', sans-serif;
 }
 
 * {
@@ -37,6 +51,17 @@ h1, h2, h3, h4 {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* Con subscriptSizing="dynamic" (ver app.config.ts) Material deja de reservar
+   ~22px fijos bajo cada campo, espacio que varios formularios (login,
+   registro) usaban como separación implícita entre campos sin definir la
+   suya propia — sin esto, los inputs quedan pegados unos a otros. Los
+   formularios que ya definen su propio gap (flex/grid) lo neutralizan
+   localmente para no duplicar el espaciado. */
+mat-form-field {
+  display: block;
+  margin-bottom: 1.25rem;
 }
 
 /* ---------------------------------------------------------------------
@@ -84,6 +109,14 @@ h1, h2, h3, h4 {
 
 .mat-mdc-progress-spinner circle {
   stroke: var(--eslm-primary) !important;
+}
+
+.mat-mdc-chip-option.mat-mdc-chip-selected {
+  background-color: var(--eslm-primary) !important;
+}
+.mat-mdc-chip-option.mat-mdc-chip-selected .mdc-evolution-chip__text-label,
+.mat-mdc-chip-option.mat-mdc-chip-selected .mat-mdc-chip-graphic {
+  color: #fff !important;
 }
 
 .mat-mdc-menu-item:hover:not([disabled]) {

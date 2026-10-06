@@ -43,12 +43,12 @@ import { LoadingComponent } from '../shared/components/loading/loading.component
             <p>Describe tu solicitud de {{ service()!.name | lowercase }} y elige tu comuna. Menos de 2 minutos.</p>
           </div>
           <div class="timeline-step">
-            <div class="step-marker" style="background: var(--eslm-accent)">2</div>
+            <div class="step-marker" style="background: var(--eslm-accent); color: var(--eslm-ink)">2</div>
             <h3>Buscamos empresas</h3>
             <p>Encontramos empresas activas que ofrecen {{ service()!.name | lowercase }} en tu zona.</p>
           </div>
           <div class="timeline-step">
-            <div class="step-marker" style="background: var(--eslm-accent-2)">3</div>
+            <div class="step-marker" style="background: var(--eslm-accent-2); color: var(--eslm-ink)">3</div>
             <h3>Te contactan</h3>
             <p>Las empresas interesadas se ponen en contacto contigo directamente.</p>
           </div>
@@ -114,7 +114,7 @@ import { LoadingComponent } from '../shared/components/loading/loading.component
       }
       .btn-primary {
         background: var(--eslm-accent);
-        color: #fff;
+        color: var(--eslm-ink);
       }
       .btn-light {
         background: #fff;
