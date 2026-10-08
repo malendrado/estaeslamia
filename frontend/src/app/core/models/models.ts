@@ -140,8 +140,8 @@ export interface Provider {
   logoUrl: string | null;
   status: ProviderStatus;
   createdAt: string;
-  providerServices?: Array<{ serviceId: string }>;
-  providerCommunes?: Array<{ communeId: string }>;
+  providerServices?: Array<{ serviceId: string; service?: Service }>;
+  providerCommunes?: Array<{ communeId: string; commune?: Commune }>;
 }
 
 export interface PaginatedResult<T> {
@@ -160,6 +160,7 @@ export interface Lead {
   isPaid: boolean;
   contactedAt: string | null;
   createdAt: string;
+  updatedAt: string;
   serviceRequest?: ServiceRequest;
   provider?: Provider;
 }

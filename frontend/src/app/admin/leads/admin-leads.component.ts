@@ -1,8 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDialog } from '@angular/material/dialog';
 import { LeadsService } from '../../core/services/leads.service';
 import { Lead, LeadStatus } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -11,6 +12,9 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { PagerComponent } from '../../shared/components/pager/pager.component';
 import { STATUS_LABELS } from '../../shared/utils/labels';
+import { formatBudgetRange, formatDateTime } from '../../shared/utils/format';
+import { AdminDetailDialogComponent } from '../../shared/components/admin-detail-dialog/admin-detail-dialog.component';
+import { PageLoaderComponent } from '../../shared/components/page-loader/page-loader.component';
 
 const ALL_STATUSES = Object.values(LeadStatus);
 const PAGE_SIZE = 20;
@@ -28,8 +32,12 @@ const PAGE_SIZE = 20;
     EmptyStateComponent,
     ErrorStateComponent,
     PagerComponent,
+    PageLoaderComponent,
   ],
   template: `
+    <app-page-loader [visible]="!!loadingDetailId()"></app-page-loader>
+    <p class="tab-description">Leads generados por el motor de matching: qué empresa recibió cada solicitud y en qué estado está su seguimiento.</p>
+
     <div class="filters">
       <mat-form-field appearance="outline">
         <mat-label>Filtrar por estado</mat-label>
@@ -62,7 +70,7 @@ const PAGE_SIZE = 20;
         </thead>
         <tbody>
           @for (lead of leads(); track lead.id) {
-            <tr>
+            <tr class="clickable-row" (click)="openDetail(lead)">
               <td>{{ lead.createdAt | date: 'dd/MM/yyyy' }}</td>
               <td>{{ lead.provider?.businessName }}</td>
               <td>{{ lead.serviceRequest?.service?.name }}</td>
@@ -93,6 +101,9 @@ const PAGE_SIZE = 20;
       .data-table tbody tr:hover {
         background: #fafaf8;
       }
+      .clickable-row {
+        cursor: pointer;
+      }
       .data-table tr:last-child td {
         border-bottom: none;
       }
@@ -117,6 +128,8 @@ const PAGE_SIZE = 20;
   ],
 })
 export class AdminLeadsComponent implements OnInit {
+  private readonly dialog = inject(MatDialog);
+
   readonly PAGE_SIZE = PAGE_SIZE;
   readonly statuses = ALL_STATUSES;
   readonly statusLabels = STATUS_LABELS;
@@ -125,6 +138,7 @@ export class AdminLeadsComponent implements OnInit {
   readonly page = signal(1);
   readonly loading = signal(true);
   readonly hasError = signal(false);
+  readonly loadingDetailId = signal<string | null>(null);
   statusFilter: LeadStatus | undefined;
 
   constructor(private readonly leadsService: LeadsService) {}
@@ -151,6 +165,61 @@ export class AdminLeadsComponent implements OnInit {
         this.loading.set(false);
         this.hasError.set(true);
       },
+    });
+  }
+
+  openDetail(row: Lead): void {
+    if (this.loadingDetailId()) return;
+    this.loadingDetailId.set(row.id);
+    this.leadsService.getByIdForAdmin(row.id).subscribe({
+      next: (lead) => {
+      this.loadingDetailId.set(null);
+      const sr = lead.serviceRequest;
+      this.dialog.open(AdminDetailDialogComponent, {
+        width: '560px',
+        maxWidth: '95vw',
+        autoFocus: false,
+        data: {
+          title: lead.provider?.businessName ?? 'Lead',
+          subtitle: sr?.service?.name,
+          status: lead.status,
+          sections: [
+            {
+              label: 'Solicitud',
+              fields: [
+                { label: 'Categoría', value: sr?.category?.name ?? '' },
+                { label: 'Servicio', value: sr?.service?.name ?? '' },
+                { label: 'Comuna', value: sr?.commune?.name ?? '' },
+              ],
+            },
+            {
+              label: 'Detalle',
+              fields: [
+                { label: 'Descripción', value: sr?.description ?? '' },
+                { label: 'Presupuesto', value: formatBudgetRange(sr?.budgetMin, sr?.budgetMax) },
+                { label: 'Dirección', value: sr?.address ?? '' },
+              ],
+            },
+            {
+              label: 'Contacto',
+              fields: [
+                { label: 'Nombre', value: sr?.contactName ?? '' },
+                { label: 'Email', value: sr?.contactEmail ?? '' },
+                { label: 'Teléfono', value: sr?.contactPhone ?? '' },
+              ],
+            },
+            {
+              label: 'Seguimiento',
+              fields: [
+                { label: 'Lead generado', value: formatDateTime(lead.createdAt) },
+                { label: 'Contactado el', value: formatDateTime(lead.contactedAt) },
+              ],
+            },
+          ],
+        },
+        });
+      },
+      error: () => this.loadingDetailId.set(null),
     });
   }
 }

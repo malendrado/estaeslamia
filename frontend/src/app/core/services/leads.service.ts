@@ -35,4 +35,8 @@ export class LeadsService {
     params.set('limit', String(filters.limit ?? 20));
     return this.http.get<PaginatedResult<Lead>>(`${BASE}/leads?${params.toString()}`);
   }
+
+  getByIdForAdmin(id: string): Observable<Lead> {
+    return this.http.get<Lead>(`${BASE}/leads/${id}`);
+  }
 }

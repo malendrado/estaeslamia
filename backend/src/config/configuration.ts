@@ -28,6 +28,15 @@ export default () => ({
     // Sin configurar en desarrollo: TurnstileService omite la verificación y loguea advertencia.
     secretKey: process.env.TURNSTILE_SECRET_KEY || null,
   },
+  google: {
+    // Sin configurar: POST /auth/google y /providers/register-google devuelven error claro.
+    clientId: process.env.GOOGLE_CLIENT_ID || null,
+  },
+  email: {
+    // Sin configurar: EmailService omite el envío y loguea una advertencia (no rompe el flujo).
+    resendApiKey: process.env.RESEND_API_KEY || null,
+    from: process.env.EMAIL_FROM || 'EstaEsLaMía.cl <onboarding@resend.dev>',
+  },
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL || '60', 10),
     limit: parseInt(process.env.THROTTLE_LIMIT || '100', 10),

@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ServiceRequest } from './entities/service-request.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Service } from '../services/entities/service.entity';
@@ -31,6 +31,7 @@ export class ServiceRequestsService {
     private readonly usersService: UsersService,
     private readonly leadsService: LeadsService,
     private readonly turnstileService: TurnstileService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(dto: CreateServiceRequestDto, remoteIp?: string): Promise<CreateServiceRequestResult> {
@@ -62,31 +63,47 @@ export class ServiceRequestsService {
       phone: dto.contactPhone,
     });
 
-    let serviceRequest = this.serviceRequestRepository.create({
-      customerId: customer.id,
-      categoryId: dto.categoryId,
-      serviceId: dto.serviceId,
-      communeId: dto.communeId,
-      description: dto.description,
-      address: dto.address ?? null,
-      preferredDate: dto.preferredDate ?? null,
-      budgetMin: dto.budgetMin ?? null,
-      budgetMax: dto.budgetMax ?? null,
-      contactName: dto.contactName,
-      contactEmail: dto.contactEmail,
-      contactPhone: dto.contactPhone,
-      consentAcceptedAt: new Date(),
-      status: ServiceRequestStatus.SUBMITTED,
+    // La ServiceRequest y sus Leads son una sola unidad: si el matching falla
+    // a mitad de camino, no debe quedar una solicitud creada sin sus leads
+    // correspondientes (o viceversa). Los emails van después del commit.
+    const { serviceRequest, leads, compatibleProviders } = await this.dataSource.transaction(async (manager) => {
+      const serviceRequestRepo = manager.getRepository(ServiceRequest);
+
+      let serviceRequest = serviceRequestRepo.create({
+        customerId: customer.id,
+        categoryId: dto.categoryId,
+        serviceId: dto.serviceId,
+        communeId: dto.communeId,
+        description: dto.description,
+        address: dto.address ?? null,
+        preferredDate: dto.preferredDate ?? null,
+        budgetMin: dto.budgetMin ?? null,
+        budgetMax: dto.budgetMax ?? null,
+        contactName: dto.contactName,
+        contactEmail: dto.contactEmail,
+        contactPhone: dto.contactPhone,
+        consentAcceptedAt: new Date(),
+        status: ServiceRequestStatus.SUBMITTED,
+      });
+      serviceRequest = await serviceRequestRepo.save(serviceRequest);
+      // No se persiste (ManyToOne sin cascade), solo deja el objeto en memoria con lo
+      // necesario para el email de "encontramos N empresas" sin una query extra.
+      serviceRequest.category = category;
+      serviceRequest.service = service;
+      serviceRequest.commune = commune;
+
+      // Matching Engine: se ejecuta de inmediato, en el mismo request (MVP, sin colas)
+      const { leads, compatibleProviders } = await this.leadsService.generateLeadsInTransaction(serviceRequest, manager);
+
+      if (leads.length > 0) {
+        serviceRequest.status = ServiceRequestStatus.MATCHED;
+        serviceRequest = await serviceRequestRepo.save(serviceRequest);
+      }
+
+      return { serviceRequest, leads, compatibleProviders };
     });
-    serviceRequest = await this.serviceRequestRepository.save(serviceRequest);
 
-    // Matching Engine: se ejecuta de inmediato, en el mismo request (MVP, sin colas)
-    const leads = await this.leadsService.generateLeadsForServiceRequest(serviceRequest);
-
-    if (leads.length > 0) {
-      serviceRequest.status = ServiceRequestStatus.MATCHED;
-      serviceRequest = await this.serviceRequestRepository.save(serviceRequest);
-    }
+    await this.leadsService.notifyNewMatch(serviceRequest, compatibleProviders);
 
     return { serviceRequest, matchesCount: leads.length };
   }
@@ -111,7 +128,7 @@ export class ServiceRequestsService {
     const leads = await this.leadsService.findByServiceRequestId(id);
     return {
       request,
-      providers: leads.map((lead) => ({ leadStatus: lead.status, ...lead.provider })),
+      providers: leads.map((lead) => ({ leadStatus: lead.status, contactedAt: lead.contactedAt, ...lead.provider })),
     };
   }
 

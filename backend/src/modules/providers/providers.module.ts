@@ -9,12 +9,14 @@ import { ProvidersService } from './providers.service';
 import { ProvidersController } from './providers.controller';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
+import { LeadsModule } from '../leads/leads.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Provider, ProviderServiceEntity, ProviderCommune, Service, Commune]),
     UsersModule,
     AuthModule,
+    LeadsModule,
   ],
   controllers: [ProvidersController],
   providers: [ProvidersService],

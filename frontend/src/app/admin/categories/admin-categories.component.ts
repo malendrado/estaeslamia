@@ -12,6 +12,8 @@ import { CatalogItemDialogComponent, CatalogItemDialogData, CatalogItemDialogRes
   standalone: true,
   imports: [CommonModule, MatButtonModule, LoadingComponent],
   template: `
+    <p class="tab-description">Catálogo de categorías y servicios que los clientes pueden solicitar en el wizard.</p>
+
     @if (loading()) {
       <app-loading></app-loading>
     } @else {

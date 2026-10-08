@@ -21,6 +21,10 @@ export class UsersService {
     return this.http.get<PaginatedResult<User>>(`${BASE}/users?${params.toString()}`);
   }
 
+  getByIdForAdmin(id: string): Observable<User> {
+    return this.http.get<User>(`${BASE}/users/${id}`);
+  }
+
   setActiveStatus(id: string, isActive: boolean): Observable<User> {
     return this.http.patch<User>(`${BASE}/users/${id}/status`, { isActive });
   }

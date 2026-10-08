@@ -5,6 +5,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user.type';
@@ -38,6 +39,17 @@ export class AuthController {
   @ApiResponse({ status: 429, description: 'Demasiados intentos de login desde esta IP (límite: 10/min)' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Login/registro con Google (crea CUSTOMER si el email no existía)' })
+  @ApiResponse({ status: 200, description: 'Login exitoso. Devuelve accessToken + datos del usuario.' })
+  @ApiResponse({ status: 400, description: 'Login con Google no está configurado en este ambiente' })
+  @ApiResponse({ status: 401, description: 'Token de Google inválido, email no verificado, o cuenta inactiva' })
+  loginWithGoogle(@Body() dto: GoogleLoginDto) {
+    return this.authService.loginWithGoogle(dto.idToken);
   }
 
   @Get('me')

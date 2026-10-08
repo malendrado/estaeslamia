@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { UserRole } from '../../common/enums';
 import { User } from '../users/entities/user.entity';
 import { TurnstileService } from '../../common/services/turnstile.service';
+import { GoogleAuthService } from '../../common/services/google-auth.service';
 
 const SALT_ROUNDS = 10;
 
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly turnstileService: TurnstileService,
+    private readonly googleAuthService: GoogleAuthService,
   ) {}
 
   /**
@@ -80,6 +82,42 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    return this.buildAuthResult(user);
+  }
+
+  /**
+   * Login/registro con Google Identity Services. Si el email ya existe (de
+   * cualquier rol), simplemente inicia sesión — incluyendo el caso de una
+   * cuenta CUSTOMER "silenciosa" (creada al enviar una solicitud sin
+   * registro), igual que register() hace con password. Si no existe,
+   * crea un CUSTOMER nuevo (el registro de PROVIDER vía Google pasa por
+   * ProvidersService.registerWithGoogle, que necesita datos de empresa
+   * que Google no entrega).
+   */
+  async loginWithGoogle(idToken: string): Promise<AuthResult> {
+    const profile = await this.googleAuthService.verifyIdToken(idToken);
+    const existing = await this.usersService.findByEmail(profile.email);
+
+    if (existing) {
+      const isClaimableSilentCustomer =
+        existing.role === UserRole.CUSTOMER && !existing.passwordHash && !existing.isActive;
+      if (isClaimableSilentCustomer) {
+        const activated = await this.usersService.activateSilentCustomer(existing.id, profile.name);
+        return this.buildAuthResult(activated);
+      }
+      if (!existing.isActive) {
+        throw new UnauthorizedException('Esta cuenta está inactiva');
+      }
+      return this.buildAuthResult(existing);
+    }
+
+    const user = await this.usersService.createUser({
+      email: profile.email,
+      passwordHash: null,
+      name: profile.name,
+      role: UserRole.CUSTOMER,
+      isActive: true,
+    });
     return this.buildAuthResult(user);
   }
 

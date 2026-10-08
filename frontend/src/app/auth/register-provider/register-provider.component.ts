@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../../core/services/auth.service';
 import { AnalyticsService } from '../../core/services/analytics.service';
 import { TurnstileComponent } from '../../shared/components/turnstile/turnstile.component';
+import { GoogleSignInComponent } from '../../shared/components/google-signin/google-signin.component';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -21,6 +22,7 @@ import { environment } from '../../../environments/environment';
     MatInputModule,
     MatButtonModule,
     TurnstileComponent,
+    GoogleSignInComponent,
   ],
   template: `
     <div class="auth-page">
@@ -38,16 +40,6 @@ import { environment } from '../../../environments/environment';
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full">
-            <mat-label>Nombre de contacto</mat-label>
-            <input matInput formControlName="contactName" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Email</mat-label>
-            <input matInput type="email" formControlName="email" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full">
             <mat-label>Teléfono</mat-label>
             <input matInput formControlName="phone" />
           </mat-form-field>
@@ -55,6 +47,22 @@ import { environment } from '../../../environments/environment';
           <mat-form-field appearance="outline" class="full">
             <mat-label>Descripción breve (opcional)</mat-label>
             <textarea matInput formControlName="description" rows="3"></textarea>
+          </mat-form-field>
+
+          @if (googleEnabled) {
+            <app-google-signin (signedIn)="onGoogleSignIn($event)"></app-google-signin>
+            <p class="google-hint">Usa el email de tu cuenta de Google para la empresa, sin crear contraseña.</p>
+            <p class="divider"><span>o con email y contraseña</span></p>
+          }
+
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Nombre de contacto</mat-label>
+            <input matInput formControlName="contactName" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Email</mat-label>
+            <input matInput type="email" formControlName="email" />
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full">
@@ -99,6 +107,11 @@ import { environment } from '../../../environments/environment';
       .auth-card {
         width: 100%;
         max-width: 460px;
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 16px;
+        box-shadow: 0 16px 32px -20px rgba(22, 33, 62, 0.15);
+        padding: 1.75rem;
       }
       .full {
         width: 100%;
@@ -106,6 +119,28 @@ import { environment } from '../../../environments/environment';
       .subtitle {
         color: #757575;
         margin-bottom: 1.5rem;
+      }
+      .google-hint {
+        font-size: 0.78rem;
+        color: #757575;
+        margin: 0.4rem 0 0;
+      }
+      .divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        color: #9e9e9e;
+        font-size: 0.85rem;
+        margin: 1rem 0;
+      }
+      .divider::before,
+      .divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .divider span {
+        padding: 0 0.75rem;
       }
       .legal-note {
         font-size: 0.78rem;
@@ -135,6 +170,7 @@ export class RegisterProviderComponent {
   readonly errorMessage = signal<string | null>(null);
   turnstileToken = '';
   readonly turnstileRequired = !!environment.turnstileSiteKey;
+  readonly googleEnabled = !!environment.googleClientId;
 
   readonly form = this.fb.group({
     businessName: ['', [Validators.required, Validators.minLength(2)]],
@@ -168,5 +204,39 @@ export class RegisterProviderComponent {
         this.errorMessage.set(err?.error?.message ?? 'No pudimos registrar tu empresa.');
       },
     });
+  }
+
+  onGoogleSignIn(idToken: string): void {
+    const businessName = this.form.get('businessName');
+    const phone = this.form.get('phone');
+    if (businessName?.invalid || phone?.invalid) {
+      businessName?.markAsTouched();
+      phone?.markAsTouched();
+      this.errorMessage.set('Completa el nombre de la empresa y el teléfono antes de continuar con Google.');
+      return;
+    }
+
+    this.loading.set(true);
+    this.errorMessage.set(null);
+
+    const { businessName: name, phone: phoneValue, description } = this.form.getRawValue();
+    this.authService
+      .registerProviderWithGoogle({
+        idToken,
+        businessName: name!,
+        phone: phoneValue!,
+        description: description || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.loading.set(false);
+          this.analyticsService.track('PROVIDER_REGISTERED', '/proveedores/registro');
+          this.router.navigateByUrl('/proveedor');
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.errorMessage.set(err?.error?.message ?? 'No pudimos registrar tu empresa con Google.');
+        },
+      });
   }
 }

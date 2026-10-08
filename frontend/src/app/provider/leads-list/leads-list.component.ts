@@ -1,14 +1,21 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { LeadsService } from '../../core/services/leads.service';
 import { Lead, LeadStatus } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
+import { STATUS_LABELS } from '../../shared/utils/labels';
+
+const ALL_STATUSES = Object.values(LeadStatus);
 
 @Component({
   selector: 'app-provider-leads-list',
@@ -16,8 +23,12 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
   imports: [
     CommonModule,
     RouterLink,
+    FormsModule,
     MatButtonModule,
     MatChipsModule,
+    MatIconModule,
+    MatSelectModule,
+    MatFormFieldModule,
     StatusBadgeComponent,
     LoadingComponent,
     EmptyStateComponent,
@@ -43,6 +54,20 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
       </div>
     </div>
 
+    @if (!loading() && !hasError() && leads().length > 0) {
+      <div class="filters">
+        <mat-form-field appearance="outline">
+          <mat-label>Filtrar por estado</mat-label>
+          <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+            <mat-option [value]="undefined">Todos</mat-option>
+            @for (s of statuses; track s) {
+              <mat-option [value]="s">{{ statusLabels[s] ?? s }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+    }
+
     @if (loading()) {
       <app-loading></app-loading>
     } @else if (hasError()) {
@@ -50,6 +75,8 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
     } @else if (leads().length === 0) {
       <app-empty-state icon="inbox" message="Todavía no tienes leads. Aparecerán aquí cuando un cliente busque tus servicios.">
       </app-empty-state>
+    } @else if (filteredLeads().length === 0) {
+      <app-empty-state icon="search_off" message="No tienes leads con este filtro."></app-empty-state>
     } @else {
       <div class="table-scroll">
       <table class="leads-table">
@@ -64,14 +91,18 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
           </tr>
         </thead>
         <tbody>
-          @for (lead of leads(); track lead.id) {
+          @for (lead of filteredLeads(); track lead.id) {
             <tr>
               <td>{{ lead.createdAt | date: 'dd/MM/yyyy' }}</td>
               <td>{{ lead.serviceRequest?.service?.name ?? '—' }}</td>
               <td>{{ lead.serviceRequest?.commune?.name ?? '—' }}</td>
               <td class="desc">{{ lead.serviceRequest?.description }}</td>
               <td><app-status-badge [status]="lead.status"></app-status-badge></td>
-              <td><a mat-button [routerLink]="['/proveedor/leads', lead.id]">Ver</a></td>
+              <td>
+                <a mat-stroked-button color="primary" class="view-btn" [routerLink]="['/proveedor/leads', lead.id]">
+                  Ver <mat-icon inline>chevron_right</mat-icon>
+                </a>
+              </td>
             </tr>
           }
         </tbody>
@@ -81,6 +112,10 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
   `,
   styles: [
     `
+      .filters {
+        margin-bottom: 1rem;
+        max-width: 260px;
+      }
       .summary-cards {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -148,13 +183,27 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .view-btn {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+      }
     `,
   ],
 })
 export class ProviderLeadsListComponent implements OnInit {
+  readonly statuses = ALL_STATUSES;
+  readonly statusLabels = STATUS_LABELS;
+
   readonly leads = signal<Lead[]>([]);
   readonly loading = signal(true);
   readonly hasError = signal(false);
+  readonly statusFilter = signal<LeadStatus | undefined>(undefined);
+
+  readonly filteredLeads = computed(() => {
+    const status = this.statusFilter();
+    return status ? this.leads().filter((l) => l.status === status) : this.leads();
+  });
 
   readonly counts = computed(() => {
     const all = this.leads();

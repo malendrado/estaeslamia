@@ -72,4 +72,14 @@ export class LeadsController {
   findByServiceRequest(@Param('serviceRequestId', ParseUUIDPipe) serviceRequestId: string) {
     return this.leadsService.findByServiceRequestId(serviceRequestId);
   }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '[ADMIN] Detalle completo de un lead' })
+  @ApiResponse({ status: 404, description: 'Lead no encontrado' })
+  findOneForAdmin(@Param('id', ParseUUIDPipe) id: string) {
+    return this.leadsService.findByIdForAdmin(id);
+  }
 }

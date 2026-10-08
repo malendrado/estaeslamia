@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Provider } from './entities/provider.entity';
 import { ProviderService as ProviderServiceEntity } from './entities/provider-service.entity';
@@ -10,11 +10,15 @@ import { Commune } from '../communes/entities/commune.entity';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { RegisterProviderDto } from './dto/register-provider.dto';
+import { RegisterProviderGoogleDto } from './dto/register-provider-google.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
 import { UserRole, ProviderStatus, PROVIDER_VALID_TRANSITIONS } from '../../common/enums';
 import { PaginatedResult, paginate } from '../../common/types/paginated-result.type';
 import { TurnstileService } from '../../common/services/turnstile.service';
 import { SupabaseStorageService } from '../../common/services/supabase-storage.service';
+import { GoogleAuthService } from '../../common/services/google-auth.service';
+import { EmailService } from '../../common/services/email.service';
+import { LeadsService } from '../leads/leads.service';
 
 const SALT_ROUNDS = 10;
 
@@ -56,6 +60,9 @@ export class ProvidersService {
     private readonly dataSource: DataSource,
     private readonly turnstileService: TurnstileService,
     private readonly storageService: SupabaseStorageService,
+    private readonly googleAuthService: GoogleAuthService,
+    private readonly leadsService: LeadsService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -97,6 +104,46 @@ export class ProvidersService {
     });
   }
 
+  /**
+   * Igual que register(), pero el email/nombre vienen verificados del ID
+   * token de Google (no de lo que el usuario escriba) y no hay password que
+   * hashear — mismo motivo por el que Provider nunca se crea "a medias": si
+   * el User ya existiera, no hay forma de completarle el perfil de empresa
+   * después sin un endpoint dedicado, así que se rechaza igual que register().
+   */
+  async registerWithGoogle(dto: RegisterProviderGoogleDto): Promise<Provider> {
+    const profile = await this.googleAuthService.verifyIdToken(dto.idToken);
+
+    const existingUser = await this.usersService.findByEmail(profile.email);
+    if (existingUser) {
+      throw new ConflictException('Ya existe una cuenta registrada con ese email');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const user = manager.create(User, {
+        email: profile.email,
+        passwordHash: null,
+        name: profile.name,
+        phone: dto.phone,
+        role: UserRole.PROVIDER,
+        isActive: true,
+      });
+      const savedUser = await manager.save(User, user);
+
+      const provider = manager.create(Provider, {
+        userId: savedUser.id,
+        businessName: dto.businessName,
+        description: dto.description ?? null,
+        phone: dto.phone,
+        email: profile.email,
+        website: dto.website ?? null,
+        whatsapp: dto.whatsapp ?? null,
+        status: ProviderStatus.PENDING,
+      });
+      return manager.save(Provider, provider);
+    });
+  }
+
   async findByUserId(userId: string): Promise<Provider> {
     const provider = await this.providerRepository.findOne({
       where: { userId },
@@ -107,7 +154,10 @@ export class ProvidersService {
   }
 
   async findById(id: string): Promise<Provider> {
-    const provider = await this.providerRepository.findOne({ where: { id } });
+    const provider = await this.providerRepository.findOne({
+      where: { id },
+      relations: { providerServices: { service: true }, providerCommunes: { commune: true } },
+    });
     if (!provider) throw new NotFoundException('Provider no encontrado');
     return provider;
   }
@@ -130,14 +180,27 @@ export class ProvidersService {
   async findFeatured(limit = 6): Promise<
     Array<{ id: string; businessName: string; description: string | null; logoUrl: string | null; services: string[] }>
   > {
-    const providers = await this.providerRepository
+    // Dos queries en vez de un solo leftJoinAndSelect + ORDER BY RANDOM(): el join hace que
+    // TypeORM agregue SELECT DISTINCT para no duplicar providers por el fan-out de la relación
+    // one-to-many, y Postgres no permite RANDOM() en el ORDER BY de un DISTINCT si no está en
+    // el SELECT. Sin join no hay DISTINCT, así que el random funciona.
+    const randomIds = await this.providerRepository
       .createQueryBuilder('provider')
-      .leftJoinAndSelect('provider.providerServices', 'ps')
-      .leftJoinAndSelect('ps.service', 'service')
+      .select('provider.id')
       .where('provider.status = :status', { status: ProviderStatus.ACTIVE })
       .orderBy('RANDOM()')
       .take(limit)
       .getMany();
+
+    if (randomIds.length === 0) return [];
+
+    const providers = await this.providerRepository.find({
+      where: { id: In(randomIds.map((p) => p.id)) },
+      relations: { providerServices: { service: true } },
+    });
+
+    const orderById = new Map(randomIds.map((p, index) => [p.id, index]));
+    providers.sort((a, b) => orderById.get(a.id)! - orderById.get(b.id)!);
 
     return providers.map((provider) => ({
       id: provider.id,
@@ -199,7 +262,13 @@ export class ProvidersService {
     const entries = serviceIds.map((serviceId) =>
       this.providerServiceRepository.create({ providerId: provider.id, serviceId }),
     );
-    return this.providerServiceRepository.save(entries);
+    const saved = await this.providerServiceRepository.save(entries);
+
+    if (provider.status === ProviderStatus.ACTIVE) {
+      await this.leadsService.retryMatchingForProvider(provider.id);
+    }
+
+    return saved;
   }
 
   /**
@@ -219,7 +288,13 @@ export class ProvidersService {
     const entries = communeIds.map((communeId) =>
       this.providerCommuneRepository.create({ providerId: provider.id, communeId }),
     );
-    return this.providerCommuneRepository.save(entries);
+    const saved = await this.providerCommuneRepository.save(entries);
+
+    if (provider.status === ProviderStatus.ACTIVE) {
+      await this.leadsService.retryMatchingForProvider(provider.id);
+    }
+
+    return saved;
   }
 
   async updateStatus(id: string, nextStatus: ProviderStatus): Promise<Provider> {
@@ -229,6 +304,15 @@ export class ProvidersService {
       throw new ForbiddenException(`No se puede pasar de ${provider.status} a ${nextStatus}`);
     }
     provider.status = nextStatus;
-    return this.providerRepository.save(provider);
+    const saved = await this.providerRepository.save(provider);
+
+    if (nextStatus === ProviderStatus.ACTIVE) {
+      await this.emailService.sendProviderApproved(provider);
+      await this.leadsService.retryMatchingForProvider(provider.id);
+    } else if (nextStatus === ProviderStatus.SUSPENDED) {
+      await this.leadsService.expireActiveLeadsForProvider(provider);
+    }
+
+    return saved;
   }
 }

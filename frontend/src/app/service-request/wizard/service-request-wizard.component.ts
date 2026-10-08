@@ -8,11 +8,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { CatalogService } from '../../core/services/catalog.service';
 import { ServiceRequestsService } from '../../core/services/service-requests.service';
 import { SeoService } from '../../core/services/seo.service';
 import { AnalyticsService } from '../../core/services/analytics.service';
-import { Category, Commune, Region, Service } from '../../core/models/models';
+import { AuthService } from '../../core/services/auth.service';
+import { Category, Commune, Region, Service, UserRole } from '../../core/models/models';
 import { TurnstileComponent } from '../../shared/components/turnstile/turnstile.component';
 import { environment } from '../../../environments/environment';
 
@@ -36,8 +39,10 @@ const budgetRangeValidator: ValidatorFn = (group: AbstractControl): ValidationEr
     MatSelectModule,
     MatButtonModule,
     MatCheckboxModule,
+    MatDatepickerModule,
     TurnstileComponent,
   ],
+  providers: [provideNativeDateAdapter()],
   template: `
     <div class="wizard-page">
       <h1>Cuéntanos qué necesitas</h1>
@@ -133,17 +138,31 @@ const budgetRangeValidator: ValidatorFn = (group: AbstractControl): ValidationEr
 
             <mat-form-field appearance="outline" class="half">
               <mat-label>Fecha aproximada (opcional)</mat-label>
-              <input matInput type="date" formControlName="preferredDate" [min]="minDate" />
+              <input matInput [matDatepicker]="preferredDatePicker" formControlName="preferredDate" [min]="today" />
+              <mat-datepicker-toggle matIconSuffix [for]="preferredDatePicker"></mat-datepicker-toggle>
+              <mat-datepicker #preferredDatePicker></mat-datepicker>
             </mat-form-field>
 
             <div class="budget-row">
               <mat-form-field appearance="outline" class="half">
                 <mat-label>Presupuesto mín. (opcional)</mat-label>
-                <input matInput type="number" min="0" formControlName="budgetMin" />
+                <input
+                  matInput
+                  type="text"
+                  inputmode="numeric"
+                  [value]="budgetMinDisplay()"
+                  (input)="onBudgetInput($event, 'budgetMin')"
+                />
               </mat-form-field>
               <mat-form-field appearance="outline" class="half">
                 <mat-label>Presupuesto máx. (opcional)</mat-label>
-                <input matInput type="number" min="0" formControlName="budgetMax" />
+                <input
+                  matInput
+                  type="text"
+                  inputmode="numeric"
+                  [value]="budgetMaxDisplay()"
+                  (input)="onBudgetInput($event, 'budgetMax')"
+                />
               </mat-form-field>
             </div>
             @if (detailGroup.hasError('budgetRange') && detailGroup.get('budgetMax')?.touched) {
@@ -161,6 +180,10 @@ const budgetRangeValidator: ValidatorFn = (group: AbstractControl): ValidationEr
 
         <mat-step [stepControl]="contactGroup" label="Contacto">
           <form [formGroup]="contactGroup" class="step-form" (ngSubmit)="submit()">
+            @if (prefilledFromAccount()) {
+              <p class="account-hint">Usamos los datos de tu cuenta. Puedes editarlos si quieres usar otros para esta solicitud.</p>
+            }
+
             <mat-form-field appearance="outline" class="full">
               <mat-label>Nombre</mat-label>
               <input matInput formControlName="contactName" />
@@ -280,6 +303,11 @@ const budgetRangeValidator: ValidatorFn = (group: AbstractControl): ValidationEr
       .full {
         width: 100%;
       }
+      .account-hint {
+        margin: 0 0 0.25rem;
+        font-size: 0.85rem;
+        color: #757575;
+      }
       .half {
         width: 100%;
       }
@@ -305,7 +333,9 @@ const budgetRangeValidator: ValidatorFn = (group: AbstractControl): ValidationEr
 })
 export class ServiceRequestWizardComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
-  readonly minDate = new Date().toISOString().slice(0, 10);
+  readonly today = new Date();
+  readonly budgetMinDisplay = signal('');
+  readonly budgetMaxDisplay = signal('');
 
   readonly categories = signal<Category[]>([]);
   readonly services = signal<Service[]>([]);
@@ -330,7 +360,7 @@ export class ServiceRequestWizardComponent implements OnInit {
     {
       description: ['', [Validators.required, Validators.minLength(10)]],
       address: [''],
-      preferredDate: [''],
+      preferredDate: [null as Date | null],
       budgetMin: [null as number | null],
       budgetMax: [null as number | null],
     },
@@ -344,11 +374,14 @@ export class ServiceRequestWizardComponent implements OnInit {
     consentAccepted: [false, Validators.requiredTrue],
   });
 
+  readonly prefilledFromAccount = signal(false);
+
   constructor(
     private readonly catalogService: CatalogService,
     private readonly serviceRequestsService: ServiceRequestsService,
     private readonly seoService: SeoService,
     private readonly analyticsService: AnalyticsService,
+    private readonly authService: AuthService,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
   ) {}
@@ -375,6 +408,18 @@ export class ServiceRequestWizardComponent implements OnInit {
         }
       });
     }
+
+    // Si ya hay sesión de cliente, no tiene sentido volver a pedirle sus propios datos.
+    if (this.authService.hasRole(UserRole.CUSTOMER)) {
+      this.authService.getMe().subscribe((me) => {
+        this.contactGroup.patchValue({
+          contactName: me.name,
+          contactEmail: me.email,
+          contactPhone: me.phone ?? '',
+        });
+        this.prefilledFromAccount.set(true);
+      });
+    }
   }
 
   onCategoryChange(categoryId: string): void {
@@ -387,6 +432,22 @@ export class ServiceRequestWizardComponent implements OnInit {
     this.catalogService.getCommunes(regionId).subscribe((communes) => this.communes.set(communes));
   }
 
+  // El FormControl guarda el número limpio (lo que espera el backend); el
+  // input solo muestra la versión formateada con puntos de miles.
+  onBudgetInput(event: Event, field: 'budgetMin' | 'budgetMax'): void {
+    const input = event.target as HTMLInputElement;
+    const digits = input.value.replace(/\D/g, '');
+    const numeric = digits ? parseInt(digits, 10) : null;
+    const display = numeric !== null ? numeric.toLocaleString('es-CL') : '';
+
+    input.value = display;
+    (field === 'budgetMin' ? this.budgetMinDisplay : this.budgetMaxDisplay).set(display);
+
+    const control = this.detailGroup.get(field)!;
+    control.setValue(numeric);
+    control.markAsTouched();
+  }
+
   submit(): void {
     if (this.serviceGroup.invalid || this.locationGroup.invalid || this.detailGroup.invalid || this.contactGroup.invalid) {
       return;
@@ -394,9 +455,12 @@ export class ServiceRequestWizardComponent implements OnInit {
     this.submitting.set(true);
     this.errorMessage.set(null);
 
+    // regionId es solo para filtrar el selector de comunas en el wizard — el
+    // backend no lo espera (ServiceRequest no tiene esa columna) y con
+    // forbidNonWhitelisted rechaza la request completa si se lo mandamos.
     const payload = {
       ...this.serviceGroup.getRawValue(),
-      ...this.locationGroup.getRawValue(),
+      communeId: this.locationGroup.getRawValue().communeId,
       ...this.detailGroup.getRawValue(),
       ...this.contactGroup.getRawValue(),
       turnstileToken: this.turnstileToken,

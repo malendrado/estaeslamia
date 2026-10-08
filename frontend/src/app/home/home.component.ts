@@ -62,6 +62,34 @@ const FAQS: Faq[] = [
     answer:
       'Las empresas interesadas te contactan directamente por teléfono, WhatsApp o email. Tú decides con cuál avanzar — nosotros no intervenimos en esa decisión.',
   },
+  {
+    question: '¿Qué pasa si no encuentran ninguna empresa para mi solicitud?',
+    answer:
+      'Tu solicitud queda guardada esperando. Si una empresa nueva se registra o amplía su cobertura y calza con lo que necesitas, te avisamos por email apenas aparezca una coincidencia.',
+  },
+  {
+    question: '¿Me avisan cuando una empresa me contacta?',
+    answer: 'Sí, te enviamos un email apenas una empresa marca tu solicitud como contactada.',
+  },
+  {
+    question: '¿Puedo iniciar sesión con mi cuenta de Google?',
+    answer:
+      'Sí. Tanto para crear una cuenta de cliente como de empresa podés usar el botón "Continuar con Google", sin necesidad de crear una contraseña.',
+  },
+  {
+    question: '¿Las empresas pagan por recibir solicitudes?',
+    answer: 'Por ahora no — estamos en una etapa inicial y registrarse como empresa es completamente gratis.',
+  },
+  {
+    question: 'Soy empresa, ¿cómo sé que me llegó una solicitud nueva?',
+    answer:
+      'Te enviamos un email apenas una solicitud coincide con tus servicios y comunas, y también lo vas a ver reflejado en tu panel.',
+  },
+  {
+    question: 'Soy empresa, ¿puedo cambiar los servicios o comunas que cubro después de registrarme?',
+    answer:
+      'Sí, desde tu perfil podés actualizarlos cuando quieras. Si hay solicitudes pendientes que ahora calcen con tu nueva cobertura, te las asignamos automáticamente.',
+  },
 ];
 
 @Component({
@@ -96,34 +124,43 @@ const FAQS: Faq[] = [
     </section>
 
     <!-- QUÉ ES / PROPÓSITO -->
-    <section class="mission">
-      <div class="mission-text">
-        <h2>¿Qué es EstaEsLaMía.cl?</h2>
-        <p>
-          Todos los días, personas en Chile necesitan resolver algo — desde una filtración de agua hasta organizar
-          un evento — y no saben a quién llamar. Al mismo tiempo, empresas y profesionales están buscando
-          activamente nuevos clientes en su zona.
-        </p>
-        <p>
-          <strong>EstaEsLaMía.cl conecta ambos lados.</strong> Tú cuentas qué necesitas, nosotros avisamos a las
-          empresas que realmente ofrecen ese servicio en tu comuna, y ellas te contactan directamente. Sin
-          intermediarios manejando la conversación, sin letra chica.
-        </p>
-      </div>
-      <div class="mission-visual" aria-hidden="true">
-        <div class="mission-card">
-          <mat-icon style="color: var(--eslm-primary)">person</mat-icon>
-          <span>Necesitas algo</span>
+    <section class="mission-wrap">
+      <div class="mission">
+        <div class="mission-text">
+          <span class="mission-eyebrow">Nuestra propuesta</span>
+          <h2>¿Qué es EstaEsLaMía.cl?</h2>
+          <p>
+            Todos los días, personas en Chile necesitan resolver algo — desde una filtración de agua hasta organizar
+            un evento — y no saben a quién llamar. Al mismo tiempo, empresas y profesionales están buscando
+            activamente nuevos clientes en su zona.
+          </p>
+          <p>
+            <strong>EstaEsLaMía.cl conecta ambos lados.</strong> Tú cuentas qué necesitas, nosotros avisamos a las
+            empresas que realmente ofrecen ese servicio en tu comuna, y ellas te contactan directamente. Sin
+            intermediarios manejando la conversación, sin letra chica.
+          </p>
         </div>
-        <mat-icon class="mission-arrow">arrow_forward</mat-icon>
-        <div class="mission-card">
-          <mat-icon style="color: var(--eslm-accent)">hub</mat-icon>
-          <span>Te conectamos</span>
-        </div>
-        <mat-icon class="mission-arrow">arrow_forward</mat-icon>
-        <div class="mission-card">
-          <mat-icon style="color: var(--eslm-accent-2)">storefront</mat-icon>
-          <span>Empresa real, tu comuna</span>
+        <div class="mission-visual" aria-hidden="true">
+          <div class="mission-card">
+            <div class="mission-icon" style="background: color-mix(in srgb, var(--eslm-primary) 15%, white); color: var(--eslm-primary)">
+              <mat-icon>person</mat-icon>
+            </div>
+            <span>Necesitas algo</span>
+          </div>
+          <mat-icon class="mission-arrow">arrow_forward</mat-icon>
+          <div class="mission-card">
+            <div class="mission-icon" style="background: color-mix(in srgb, var(--eslm-accent) 15%, white); color: var(--eslm-accent-ink)">
+              <mat-icon>hub</mat-icon>
+            </div>
+            <span>Te conectamos</span>
+          </div>
+          <mat-icon class="mission-arrow">arrow_forward</mat-icon>
+          <div class="mission-card">
+            <div class="mission-icon" style="background: color-mix(in srgb, var(--eslm-accent-2) 15%, white); color: var(--eslm-accent-2-ink)">
+              <mat-icon>storefront</mat-icon>
+            </div>
+            <span>Empresa real, tu comuna</span>
+          </div>
         </div>
       </div>
     </section>
@@ -134,7 +171,7 @@ const FAQS: Faq[] = [
         <div class="stats-grid">
           @for (stat of stats(); track stat.label; let i = $index) {
             <div class="stat">
-              <span class="stat-value" [style.color]="accentTextFor(i)">{{ stat.value }}{{ stat.suffix }}</span>
+              <span class="stat-value" [style.color]="accentTextFor(i)">{{ animatedValues()[i] ?? 0 }}{{ stat.suffix }}</span>
               <span class="stat-label">{{ stat.label }}</span>
             </div>
           }
@@ -148,7 +185,12 @@ const FAQS: Faq[] = [
         <h2>Categorías populares</h2>
         <div class="category-row">
           @for (cat of categories(); track cat.id; let i = $index) {
-            <a class="category-pill" [style.borderColor]="accentFor(i)" routerLink="/solicitar">
+            <a
+              class="category-pill"
+              [style.borderColor]="accentFor(i)"
+              routerLink="/solicitar"
+              [queryParams]="cat.slug === 'otros' ? {} : { categoryId: cat.id }"
+            >
               <mat-icon [style.color]="accentFor(i)">{{ cat.icon || 'star' }}</mat-icon>
               <span>{{ cat.name }}</span>
             </a>
@@ -203,6 +245,10 @@ const FAQS: Faq[] = [
               <div class="provider-header">
                 @if (provider.logoUrl) {
                   <img [src]="provider.logoUrl" [alt]="'Logo de ' + provider.businessName" class="provider-logo" />
+                } @else {
+                  <div class="provider-logo-fallback" [style.color]="accentFor(i)">
+                    <mat-icon>storefront</mat-icon>
+                  </div>
                 }
                 <h4>{{ provider.businessName }}</h4>
               </div>
@@ -246,22 +292,30 @@ const FAQS: Faq[] = [
       <h2>Por qué EstaEsLaMía.cl</h2>
       <div class="benefit-grid">
         <div class="benefit">
-          <mat-icon style="color: var(--eslm-primary)">bolt</mat-icon>
+          <div class="benefit-icon" style="background: color-mix(in srgb, var(--eslm-primary) 15%, white); color: var(--eslm-primary)">
+            <mat-icon>bolt</mat-icon>
+          </div>
           <h4>Rápido</h4>
           <p>Publica tu solicitud en menos de 2 minutos, desde el celular.</p>
         </div>
         <div class="benefit">
-          <mat-icon style="color: var(--eslm-accent)">verified_user</mat-icon>
+          <div class="benefit-icon" style="background: color-mix(in srgb, var(--eslm-accent) 15%, white); color: var(--eslm-accent-ink)">
+            <mat-icon>verified_user</mat-icon>
+          </div>
           <h4>Empresas activas</h4>
           <p>Solo los negocios que realmente ofrecen ese servicio en tu comuna reciben tu solicitud.</p>
         </div>
         <div class="benefit">
-          <mat-icon style="color: var(--eslm-accent-2)">lock</mat-icon>
+          <div class="benefit-icon" style="background: color-mix(in srgb, var(--eslm-accent-2) 15%, white); color: var(--eslm-accent-2-ink)">
+            <mat-icon>lock</mat-icon>
+          </div>
           <h4>Tus datos, con consentimiento</h4>
           <p>Tú decides compartir tu información. Nada se envía sin tu aprobación explícita.</p>
         </div>
         <div class="benefit">
-          <mat-icon style="color: var(--eslm-accent-3)">groups</mat-icon>
+          <div class="benefit-icon" style="background: color-mix(in srgb, var(--eslm-accent-3) 15%, white); color: var(--eslm-accent-3)">
+            <mat-icon>groups</mat-icon>
+          </div>
           <h4>Sin intermediarios</h4>
           <p>Las empresas te contactan directamente. Tú coordinas los detalles con ellas.</p>
         </div>
@@ -375,17 +429,33 @@ const FAQS: Faq[] = [
       }
 
       /* MISSION */
+      .mission-wrap {
+        padding-top: 1rem;
+      }
       .mission {
         display: grid;
         grid-template-columns: 1.1fr 0.9fr;
         gap: 3rem;
         align-items: center;
-        padding-top: 2rem;
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 20px;
+        box-shadow: 0 16px 40px -24px rgba(22, 33, 62, 0.2);
+        padding: 3rem;
+      }
+      .mission-eyebrow {
+        display: inline-block;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--eslm-primary);
+        margin-bottom: 0.5rem;
       }
       .mission-text h2 {
         text-align: left;
-        font-size: 1.9rem;
-        margin-bottom: 1rem;
+        font-size: 2rem;
+        margin: 0 0 1rem;
       }
       .mission-text p {
         color: #4a5170;
@@ -406,26 +476,48 @@ const FAQS: Faq[] = [
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.4rem;
+        gap: 0.6rem;
         background: #fafaf8;
         border: 1px solid #eee;
-        border-radius: 12px;
-        padding: 1.1rem 1.5rem;
+        border-radius: 14px;
+        padding: 1.5rem;
         width: 100%;
         max-width: 240px;
         text-align: center;
         font-size: 0.85rem;
         font-weight: 600;
         color: var(--eslm-ink);
+        box-shadow: 0 8px 20px -16px rgba(22, 33, 62, 0.15);
+        transition:
+          box-shadow 0.15s,
+          transform 0.15s;
       }
-      .mission-card mat-icon {
-        font-size: 1.8rem;
-        width: 1.8rem;
-        height: 1.8rem;
+      .mission-card:hover {
+        box-shadow: 0 16px 32px -20px rgba(22, 33, 62, 0.25);
+        transform: translateY(-2px);
+      }
+      .mission-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .mission-icon mat-icon {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
       }
       .mission-arrow {
         color: #c7c2b3;
         transform: rotate(90deg);
+      }
+
+      @media (max-width: 768px) {
+        .mission {
+          padding: 2rem 1.5rem;
+        }
       }
 
       /* STATS */
@@ -449,6 +541,7 @@ const FAQS: Faq[] = [
         font-family: var(--eslm-font-display);
         font-size: 2.4rem;
         font-weight: 700;
+        font-variant-numeric: tabular-nums;
       }
       .stat-label {
         font-size: 0.85rem;
@@ -552,6 +645,9 @@ const FAQS: Faq[] = [
       }
 
       /* PROVIDERS */
+      .providers h2 {
+        text-align: center;
+      }
       .providers-subtitle {
         text-align: center;
         color: #4a5170;
@@ -559,29 +655,58 @@ const FAQS: Faq[] = [
       }
       .provider-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(3, 1fr);
         gap: 1.25rem;
       }
+      @media (max-width: 900px) {
+        .provider-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 560px) {
+        .provider-grid {
+          grid-template-columns: 1fr;
+        }
+      }
       .provider-card {
+        display: flex;
+        flex-direction: column;
         background: #fff;
         border: 1px solid #eee;
         border-top: 3px solid transparent;
-        border-radius: 10px;
+        border-radius: 12px;
         padding: 1.25rem;
+        box-shadow: 0 8px 20px -16px rgba(22, 33, 62, 0.15);
+        transition:
+          box-shadow 0.15s,
+          transform 0.15s;
+      }
+      .provider-card:hover {
+        box-shadow: 0 16px 32px -20px rgba(22, 33, 62, 0.25);
+        transform: translateY(-2px);
       }
       .provider-header {
         display: flex;
         align-items: center;
-        gap: 0.65rem;
-        margin-bottom: 0.4rem;
+        gap: 0.75rem;
+        margin-bottom: 0.6rem;
+      }
+      .provider-logo,
+      .provider-logo-fallback {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        flex-shrink: 0;
       }
       .provider-logo {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
         object-fit: cover;
         border: 1px solid #eee;
-        flex-shrink: 0;
+      }
+      .provider-logo-fallback {
+        background: #f3f1e8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       .provider-card h4 {
         margin: 0;
@@ -603,6 +728,8 @@ const FAQS: Faq[] = [
         display: flex;
         flex-wrap: wrap;
         gap: 0.4rem;
+        margin-top: auto;
+        padding-top: 0.5rem;
       }
       .mini-chip {
         font-size: 0.75rem;
@@ -666,6 +793,40 @@ const FAQS: Faq[] = [
       }
       .benefit {
         text-align: center;
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 14px;
+        padding: 2rem 1.5rem;
+        box-shadow: 0 8px 20px -16px rgba(22, 33, 62, 0.15);
+        transition:
+          box-shadow 0.15s,
+          transform 0.15s;
+      }
+      .benefit:hover {
+        box-shadow: 0 16px 32px -20px rgba(22, 33, 62, 0.25);
+        transform: translateY(-3px);
+      }
+      .benefit-icon {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .benefit-icon mat-icon {
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+      }
+      .benefit h4 {
+        margin: 0 0 0.5rem;
+      }
+      .benefit p {
+        margin: 0;
+        color: #4a5170;
+        font-size: 0.9rem;
       }
       .benefit mat-icon {
         font-size: 2.2rem;
@@ -758,6 +919,7 @@ export class HomeComponent implements OnInit {
   readonly categories = signal<Category[]>([]);
   readonly services = signal<Service[]>([]);
   readonly stats = signal<Stat[]>([]);
+  readonly animatedValues = signal<number[]>([]);
   readonly featuredProviders = signal<FeaturedProvider[]>([]);
   readonly faqs = FAQS;
 
@@ -779,13 +941,34 @@ export class HomeComponent implements OnInit {
     this.catalogService.getServices().subscribe((services) => this.services.set(services));
     this.providersService.getFeatured().subscribe((providers) => this.featuredProviders.set(providers));
     this.catalogService.getPublicStats().subscribe((stats) => {
-      this.stats.set([
+      const items: Stat[] = [
         { value: stats.categoriesCount, suffix: '', label: 'Categorías de servicios' },
         { value: stats.servicesCount, suffix: '+', label: 'Servicios disponibles' },
         { value: stats.activeProvidersCount, suffix: '+', label: 'Empresas activas' },
         { value: stats.communesCoveredCount, suffix: '', label: 'Comunas con cobertura' },
-      ]);
+      ];
+      this.stats.set(items);
+      this.animateStats(items.map((item) => item.value));
     });
+  }
+
+  private animateStats(targets: number[]): void {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.animatedValues.set(targets);
+      return;
+    }
+
+    this.animatedValues.set(targets.map(() => 0));
+    const duration = 1200;
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      this.animatedValues.set(targets.map((target) => Math.round(target * eased)));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   accentFor(index: number): string {

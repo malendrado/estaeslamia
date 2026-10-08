@@ -20,6 +20,7 @@ import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '
 import { Throttle } from '@nestjs/throttler';
 import { ProvidersService } from './providers.service';
 import { RegisterProviderDto } from './dto/register-provider.dto';
+import { RegisterProviderGoogleDto } from './dto/register-provider-google.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
 import { SetProviderServicesDto } from './dto/set-provider-services.dto';
 import { SetProviderCommunesDto } from './dto/set-provider-communes.dto';
@@ -52,6 +53,20 @@ export class ProvidersController {
   @ApiResponse({ status: 429, description: 'Demasiados registros desde esta IP (límite: 5/min)' })
   async register(@Body() dto: RegisterProviderDto, @Req() req: Request) {
     const provider = await this.providersService.register(dto, req.ip);
+    const user = await this.usersService.findById(provider.userId);
+    const authResult = this.authService.buildAuthResult(user!);
+    return { ...authResult, provider };
+  }
+
+  @Post('register-google')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Registro de empresa con Google (mismo resultado que /register, sin password)' })
+  @ApiResponse({ status: 201, description: 'Empresa registrada en estado PENDING. Devuelve accessToken + datos del usuario + el Provider creado.' })
+  @ApiResponse({ status: 400, description: 'DTO inválido, o login con Google no configurado en este ambiente' })
+  @ApiResponse({ status: 401, description: 'Token de Google inválido o email no verificado' })
+  @ApiResponse({ status: 409, description: 'Ya existe una cuenta registrada con ese email' })
+  async registerWithGoogle(@Body() dto: RegisterProviderGoogleDto) {
+    const provider = await this.providersService.registerWithGoogle(dto);
     const user = await this.usersService.findById(provider.userId);
     const authResult = this.authService.buildAuthResult(user!);
     return { ...authResult, provider };

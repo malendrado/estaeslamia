@@ -26,6 +26,11 @@ export class AuthService {
       .pipe(tap((result) => this.persistSession(result)));
   }
 
+  /** Perfil completo del usuario autenticado (incluye `phone`, que no viene en la sesión liviana). */
+  getMe(): Observable<User> {
+    return this.http.get<User>(`${environment.apiUrl}/auth/me`);
+  }
+
   registerCustomer(data: {
     email: string;
     password: string;
@@ -54,11 +59,35 @@ export class AuthService {
       .pipe(tap((result) => this.persistSession(result)));
   }
 
+  loginWithGoogle(idToken: string): Observable<AuthResult> {
+    return this.http
+      .post<AuthResult>(`${environment.apiUrl}/auth/google`, { idToken })
+      .pipe(tap((result) => this.persistSession(result)));
+  }
+
+  registerProviderWithGoogle(data: {
+    idToken: string;
+    businessName: string;
+    phone: string;
+    description?: string;
+    website?: string;
+    whatsapp?: string;
+  }): Observable<AuthResult> {
+    return this.http
+      .post<AuthResult>(`${environment.apiUrl}/providers/register-google`, data)
+      .pipe(tap((result) => this.persistSession(result)));
+  }
+
   logout(): void {
+    this.clearSession();
+    this.router.navigateByUrl('/');
+  }
+
+  /** Borra el token/usuario guardados sin redirigir — para cuando el redirect lo decide el caller (ej. el interceptor en un 401). */
+  clearSession(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     this.currentUserSignal.set(null);
-    this.router.navigateByUrl('/');
   }
 
   getToken(): string | null {

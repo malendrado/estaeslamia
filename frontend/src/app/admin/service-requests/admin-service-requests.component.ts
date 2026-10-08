@@ -1,8 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDialog } from '@angular/material/dialog';
 import { ServiceRequestsService } from '../../core/services/service-requests.service';
 import { ServiceRequest, ServiceRequestStatus } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -11,6 +12,9 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { PagerComponent } from '../../shared/components/pager/pager.component';
 import { STATUS_LABELS } from '../../shared/utils/labels';
+import { formatBudgetRange, formatDateTime } from '../../shared/utils/format';
+import { AdminDetailDialogComponent } from '../../shared/components/admin-detail-dialog/admin-detail-dialog.component';
+import { PageLoaderComponent } from '../../shared/components/page-loader/page-loader.component';
 
 const ALL_STATUSES = Object.values(ServiceRequestStatus);
 const PAGE_SIZE = 20;
@@ -28,8 +32,12 @@ const PAGE_SIZE = 20;
     EmptyStateComponent,
     ErrorStateComponent,
     PagerComponent,
+    PageLoaderComponent,
   ],
   template: `
+    <app-page-loader [visible]="!!loadingDetailId()"></app-page-loader>
+    <p class="tab-description">Todas las solicitudes de servicio enviadas por clientes, con su estado y el matching generado.</p>
+
     <div class="filters">
       <mat-form-field appearance="outline">
         <mat-label>Filtrar por estado</mat-label>
@@ -63,7 +71,7 @@ const PAGE_SIZE = 20;
         </thead>
         <tbody>
           @for (req of requests(); track req.id) {
-            <tr>
+            <tr class="clickable-row" (click)="openDetail(req)">
               <td>{{ req.createdAt | date: 'dd/MM/yyyy' }}</td>
               <td>{{ req.service?.name }}</td>
               <td>{{ req.commune?.name }}</td>
@@ -72,7 +80,7 @@ const PAGE_SIZE = 20;
                 <small>{{ req.contactEmail }} · {{ req.contactPhone }}</small>
               </td>
               <td><app-status-badge [status]="req.status"></app-status-badge></td>
-              <td>
+              <td (click)="$event.stopPropagation()">
                 <select
                   class="status-select"
                   [attr.aria-label]="'Cambiar estado de la solicitud de ' + req.contactName"
@@ -108,6 +116,9 @@ const PAGE_SIZE = 20;
       }
       .data-table tbody tr:hover {
         background: #fafaf8;
+      }
+      .clickable-row {
+        cursor: pointer;
       }
       .data-table tr:last-child td {
         border-bottom: none;
@@ -154,6 +165,8 @@ const PAGE_SIZE = 20;
   ],
 })
 export class AdminServiceRequestsComponent implements OnInit {
+  private readonly dialog = inject(MatDialog);
+
   readonly PAGE_SIZE = PAGE_SIZE;
   readonly statuses = ALL_STATUSES;
   readonly statusLabels = STATUS_LABELS;
@@ -162,6 +175,7 @@ export class AdminServiceRequestsComponent implements OnInit {
   readonly page = signal(1);
   readonly loading = signal(true);
   readonly hasError = signal(false);
+  readonly loadingDetailId = signal<string | null>(null);
   statusFilter: ServiceRequestStatus | undefined;
 
   constructor(private readonly serviceRequestsService: ServiceRequestsService) {}
@@ -198,6 +212,58 @@ export class AdminServiceRequestsComponent implements OnInit {
       next: (updated) => {
         this.requests.set(this.requests().map((r) => (r.id === request.id ? { ...r, status: updated.status } : r)));
       },
+    });
+  }
+
+  openDetail(row: ServiceRequest): void {
+    if (this.loadingDetailId()) return;
+    this.loadingDetailId.set(row.id);
+    this.serviceRequestsService.getByIdForAdmin(row.id).subscribe({
+      next: (req) => {
+      this.loadingDetailId.set(null);
+      this.dialog.open(AdminDetailDialogComponent, {
+        width: '560px',
+        maxWidth: '95vw',
+        autoFocus: false,
+        data: {
+          title: req.contactName,
+          subtitle: req.service?.name,
+          status: req.status,
+          sections: [
+            {
+              label: 'Solicitud',
+              fields: [
+                { label: 'Categoría', value: req.category?.name ?? '' },
+                { label: 'Servicio', value: req.service?.name ?? '' },
+                { label: 'Comuna', value: req.commune?.name ?? '' },
+              ],
+            },
+            {
+              label: 'Detalle',
+              fields: [
+                { label: 'Descripción', value: req.description },
+                { label: 'Dirección', value: req.address ?? '' },
+                { label: 'Fecha preferida', value: req.preferredDate ?? '' },
+                { label: 'Presupuesto', value: formatBudgetRange(req.budgetMin, req.budgetMax) },
+              ],
+            },
+            {
+              label: 'Contacto',
+              fields: [
+                { label: 'Nombre', value: req.contactName },
+                { label: 'Email', value: req.contactEmail },
+                { label: 'Teléfono', value: req.contactPhone },
+              ],
+            },
+            {
+              label: 'Seguimiento',
+              fields: [{ label: 'Creada el', value: formatDateTime(req.createdAt) }],
+            },
+          ],
+        },
+        });
+      },
+      error: () => this.loadingDetailId.set(null),
     });
   }
 }

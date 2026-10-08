@@ -65,6 +65,15 @@ export class UsersService {
     return this.userRepository.findOneOrFail({ where: { id: userId } });
   }
 
+  /** Igual que activateAsRegisteredCustomer, pero para login con Google: no hay password que setear. */
+  async activateSilentCustomer(userId: string, name?: string): Promise<User> {
+    await this.userRepository.update(userId, {
+      isActive: true,
+      ...(name ? { name } : {}),
+    });
+    return this.userRepository.findOneOrFail({ where: { id: userId } });
+  }
+
   /**
    * Listado paginado para el panel de Admin ("gestionar usuarios" — brief original sección 4/20).
    * No incluye a los customers "silenciosos" sin filtrar explícitamente, para no inundar la

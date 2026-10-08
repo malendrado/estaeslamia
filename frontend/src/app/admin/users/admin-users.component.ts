@@ -1,9 +1,10 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { UsersService } from '../../core/services/users.service';
 import { User, UserRole } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -12,6 +13,9 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { PagerComponent } from '../../shared/components/pager/pager.component';
 import { ROLE_LABELS } from '../../shared/utils/labels';
+import { formatDateTime } from '../../shared/utils/format';
+import { AdminDetailDialogComponent } from '../../shared/components/admin-detail-dialog/admin-detail-dialog.component';
+import { PageLoaderComponent } from '../../shared/components/page-loader/page-loader.component';
 
 const ALL_ROLES = Object.values(UserRole);
 const PAGE_SIZE = 20;
@@ -30,8 +34,12 @@ const PAGE_SIZE = 20;
     EmptyStateComponent,
     ErrorStateComponent,
     PagerComponent,
+    PageLoaderComponent,
   ],
   template: `
+    <app-page-loader [visible]="!!loadingDetailId()"></app-page-loader>
+    <p class="tab-description">Cuentas registradas en la plataforma — clientes, empresas y administradores.</p>
+
     <div class="filters">
       <mat-form-field appearance="outline">
         <mat-label>Rol</mat-label>
@@ -73,12 +81,12 @@ const PAGE_SIZE = 20;
           </thead>
           <tbody>
             @for (user of users(); track user.id) {
-              <tr>
+              <tr class="clickable-row" (click)="openDetail(user)">
                 <td>{{ user.name }}</td>
                 <td>{{ user.email }}</td>
                 <td>{{ roleLabels[user.role] }}</td>
                 <td><app-status-badge [status]="user.isActive ? 'ACTIVE' : 'SUSPENDED'"></app-status-badge></td>
-                <td>
+                <td (click)="$event.stopPropagation()">
                   @if (user.isActive) {
                     <button mat-stroked-button color="warn" (click)="toggle(user, false)">Suspender</button>
                   } @else if (user.hasPassword) {
@@ -114,6 +122,9 @@ const PAGE_SIZE = 20;
       .data-table tbody tr:hover {
         background: #fafaf8;
       }
+      .clickable-row {
+        cursor: pointer;
+      }
       .data-table tr:last-child td {
         border-bottom: none;
       }
@@ -142,6 +153,8 @@ const PAGE_SIZE = 20;
   ],
 })
 export class AdminUsersComponent implements OnInit {
+  private readonly dialog = inject(MatDialog);
+
   readonly PAGE_SIZE = PAGE_SIZE;
   readonly roles = ALL_ROLES;
   readonly roleLabels = ROLE_LABELS;
@@ -150,6 +163,7 @@ export class AdminUsersComponent implements OnInit {
   readonly page = signal(1);
   readonly loading = signal(true);
   readonly hasError = signal(false);
+  readonly loadingDetailId = signal<string | null>(null);
   roleFilter: UserRole | undefined;
   activeFilter: boolean | undefined;
 
@@ -187,6 +201,41 @@ export class AdminUsersComponent implements OnInit {
       next: (updated) => {
         this.users.set(this.users().map((u) => (u.id === user.id ? { ...u, isActive: updated.isActive } : u)));
       },
+    });
+  }
+
+  openDetail(row: User): void {
+    if (this.loadingDetailId()) return;
+    this.loadingDetailId.set(row.id);
+    this.usersService.getByIdForAdmin(row.id).subscribe({
+      next: (user) => {
+      this.loadingDetailId.set(null);
+      this.dialog.open(AdminDetailDialogComponent, {
+        width: '560px',
+        maxWidth: '95vw',
+        autoFocus: false,
+        data: {
+          title: user.name,
+          subtitle: this.roleLabels[user.role],
+          status: user.isActive ? 'ACTIVE' : 'SUSPENDED',
+          sections: [
+            {
+              label: 'Cuenta',
+              fields: [
+                { label: 'Email', value: user.email },
+                { label: 'Teléfono', value: user.phone ?? '' },
+                { label: 'Tiene contraseña', value: user.hasPassword ? 'Sí' : 'No (cuenta silenciosa)' },
+              ],
+            },
+            {
+              label: 'Seguimiento',
+              fields: [{ label: 'Registrado el', value: formatDateTime(user.createdAt) }],
+            },
+          ],
+        },
+        });
+      },
+      error: () => this.loadingDetailId.set(null),
     });
   }
 }

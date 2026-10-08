@@ -20,7 +20,15 @@ export interface CreateServiceRequestResponse {
 
 export interface CustomerRequestDetail {
   request: ServiceRequest;
-  providers: Array<{ leadStatus: string; id: string; businessName: string; phone: string; whatsapp: string | null; description: string | null }>;
+  providers: Array<{
+    leadStatus: string;
+    contactedAt: string | null;
+    id: string;
+    businessName: string;
+    phone: string;
+    whatsapp: string | null;
+    description: string | null;
+  }>;
 }
 
 @Injectable({ providedIn: 'root' })

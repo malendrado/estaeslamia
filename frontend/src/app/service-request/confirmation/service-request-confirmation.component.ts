@@ -1,11 +1,12 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ServiceRequestsService } from '../../core/services/service-requests.service';
 import { SeoService } from '../../core/services/seo.service';
-import { ServiceRequestSummary } from '../../core/models/models';
+import { AuthService } from '../../core/services/auth.service';
+import { ServiceRequestSummary, UserRole } from '../../core/models/models';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 
 @Component({
@@ -17,27 +18,33 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
       @if (loading()) {
         <app-loading></app-loading>
       } @else if (summary()) {
-        <mat-icon class="check">check_circle</mat-icon>
-        <h1>¡Solicitud enviada!</h1>
-        <p class="request-id">N° de solicitud: <code>{{ summary()!.id }}</code></p>
+        <div class="card">
+          <mat-icon class="check">check_circle</mat-icon>
+          <h1>¡Solicitud enviada!</h1>
+          <p class="request-id">N° de solicitud: <code>{{ summary()!.id }}</code></p>
 
-        @if (summary()!.matchesCount > 0) {
-          <p class="matches">
-            Encontramos <strong>{{ summary()!.matchesCount }}</strong>
-            {{ summary()!.matchesCount === 1 ? 'empresa' : 'empresas' }} que pueden ayudarte con
-            <strong>{{ summary()!.service }}</strong> en <strong>{{ summary()!.commune }}</strong>.
-            Pronto se pondrán en contacto contigo.
-          </p>
-        } @else {
-          <p class="matches">
-            Por ahora no encontramos empresas disponibles para <strong>{{ summary()!.service }}</strong> en
-            <strong>{{ summary()!.commune }}</strong>. Guardamos tu solicitud y te avisaremos apenas haya alguna.
-          </p>
-        }
+          @if (summary()!.matchesCount > 0) {
+            <p class="matches">
+              Encontramos <strong>{{ summary()!.matchesCount }}</strong>
+              {{ summary()!.matchesCount === 1 ? 'empresa' : 'empresas' }} que pueden ayudarte con
+              <strong>{{ summary()!.service }}</strong> en <strong>{{ summary()!.commune }}</strong>.
+              Pronto se pondrán en contacto contigo.
+            </p>
+          } @else {
+            <p class="matches">
+              Por ahora no encontramos empresas disponibles para <strong>{{ summary()!.service }}</strong> en
+              <strong>{{ summary()!.commune }}</strong>. Guardamos tu solicitud y te avisaremos apenas haya alguna.
+            </p>
+          }
 
-        <div class="actions">
-          <a mat-flat-button color="primary" routerLink="/registro">Crear cuenta para seguir mi solicitud</a>
-          <a mat-button routerLink="/">Volver al inicio</a>
+          <div class="actions">
+            @if (isLoggedInCustomer()) {
+              <a mat-flat-button color="primary" [routerLink]="['/mis-solicitudes', summary()!.id]">Ir a mis solicitudes</a>
+            } @else {
+              <a mat-flat-button color="primary" routerLink="/registro">Crear cuenta para seguir mi solicitud</a>
+            }
+            <a mat-button routerLink="/">Volver al inicio</a>
+          </div>
         </div>
       } @else {
         <p>No pudimos encontrar esta solicitud.</p>
@@ -50,6 +57,13 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
         max-width: 520px;
         margin: 0 auto;
         padding: 3rem 1rem;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 16px;
+        box-shadow: 0 16px 32px -20px rgba(22, 33, 62, 0.15);
+        padding: 2.25rem 1.75rem;
         text-align: center;
       }
       .check {
@@ -79,11 +93,13 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
 export class ServiceRequestConfirmationComponent implements OnInit {
   readonly loading = signal(true);
   readonly summary = signal<ServiceRequestSummary | null>(null);
+  readonly isLoggedInCustomer = computed(() => this.authService.hasRole(UserRole.CUSTOMER));
 
   constructor(
     private readonly route: ActivatedRoute,
     private readonly serviceRequestsService: ServiceRequestsService,
     private readonly seoService: SeoService,
+    private readonly authService: AuthService,
   ) {}
 
   ngOnInit(): void {

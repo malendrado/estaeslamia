@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { ServiceRequestsService } from './service-requests.service';
 import { ServiceRequest } from './entities/service-request.entity';
@@ -41,11 +42,19 @@ describe('ServiceRequestsService', () => {
     findOrCreateSilentCustomer: jest.fn(() => Promise.resolve({ id: 'user-1', email: 'test@example.cl' })),
   };
   const leadsServiceMock = {
-    generateLeadsForServiceRequest: jest.fn(() => Promise.resolve([])),
+    generateLeadsInTransaction: jest.fn(() => Promise.resolve({ leads: [] as any[], compatibleProviders: [] as any[] })),
+    notifyNewMatch: jest.fn(() => Promise.resolve()),
     findByServiceRequestId: jest.fn(() => Promise.resolve([])),
   };
   const turnstileServiceMock = {
     verify: jest.fn(() => Promise.resolve()),
+  };
+  // Las queries dentro de la transacción se resuelven con los mismos mocks de arriba
+  // (create/save ya devuelven lo esperado), así que alcanza con invocar el callback.
+  const dataSourceMock = {
+    transaction: jest.fn((cb: (manager: unknown) => unknown) =>
+      cb({ getRepository: jest.fn(() => serviceRequestRepoMock) }),
+    ),
   };
 
   const baseDto = {
@@ -71,6 +80,7 @@ describe('ServiceRequestsService', () => {
         { provide: UsersService, useValue: usersServiceMock },
         { provide: LeadsService, useValue: leadsServiceMock },
         { provide: TurnstileService, useValue: turnstileServiceMock },
+        { provide: DataSource, useValue: dataSourceMock },
       ],
     }).compile();
 
@@ -94,14 +104,17 @@ describe('ServiceRequestsService', () => {
   });
 
   it('crea la solicitud en estado SUBMITTED cuando el matching no encuentra providers', async () => {
-    leadsServiceMock.generateLeadsForServiceRequest.mockResolvedValueOnce([]);
+    leadsServiceMock.generateLeadsInTransaction.mockResolvedValueOnce({ leads: [], compatibleProviders: [] });
     const result = await service.create(baseDto);
     expect(result.matchesCount).toBe(0);
     expect(result.serviceRequest.status).toBe(ServiceRequestStatus.SUBMITTED);
   });
 
   it('pasa la solicitud a MATCHED cuando el matching encuentra al menos un provider', async () => {
-    leadsServiceMock.generateLeadsForServiceRequest.mockResolvedValueOnce([{ id: 'lead-1' } as any]);
+    leadsServiceMock.generateLeadsInTransaction.mockResolvedValueOnce({
+      leads: [{ id: 'lead-1' } as any],
+      compatibleProviders: [{ id: 'provider-1' } as any],
+    });
     const result = await service.create(baseDto);
     expect(result.matchesCount).toBe(1);
     expect(result.serviceRequest.status).toBe(ServiceRequestStatus.MATCHED);

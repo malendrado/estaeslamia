@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../../core/services/auth.service';
 import { AnalyticsService } from '../../core/services/analytics.service';
 import { TurnstileComponent } from '../../shared/components/turnstile/turnstile.component';
+import { GoogleSignInComponent } from '../../shared/components/google-signin/google-signin.component';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -21,6 +22,7 @@ import { environment } from '../../../environments/environment';
     MatInputModule,
     MatButtonModule,
     TurnstileComponent,
+    GoogleSignInComponent,
   ],
   template: `
     <div class="auth-page">
@@ -29,6 +31,11 @@ import { environment } from '../../../environments/environment';
         <p class="subtitle">
           Si ya enviaste una solicitud antes con este email, esta cuenta se vincula a ella automáticamente y podrás ver su estado.
         </p>
+
+        @if (googleEnabled) {
+          <app-google-signin (signedIn)="onGoogleSignIn($event)"></app-google-signin>
+          <p class="divider"><span>o</span></p>
+        }
 
         <form [formGroup]="form" (ngSubmit)="submit()">
           <mat-form-field appearance="outline" class="full">
@@ -88,6 +95,11 @@ import { environment } from '../../../environments/environment';
       .auth-card {
         width: 100%;
         max-width: 420px;
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 16px;
+        box-shadow: 0 16px 32px -20px rgba(22, 33, 62, 0.15);
+        padding: 1.75rem;
       }
       .full {
         width: 100%;
@@ -95,6 +107,23 @@ import { environment } from '../../../environments/environment';
       .subtitle {
         color: #757575;
         margin-bottom: 1.5rem;
+      }
+      .divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        color: #9e9e9e;
+        font-size: 0.85rem;
+        margin: 1rem 0;
+      }
+      .divider::before,
+      .divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .divider span {
+        padding: 0 0.75rem;
       }
       .legal-note {
         font-size: 0.78rem;
@@ -124,6 +153,7 @@ export class RegisterComponent {
   readonly errorMessage = signal<string | null>(null);
   turnstileToken = '';
   readonly turnstileRequired = !!environment.turnstileSiteKey;
+  readonly googleEnabled = !!environment.googleClientId;
 
   readonly form = this.fb.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
@@ -153,6 +183,22 @@ export class RegisterComponent {
       error: (err) => {
         this.loading.set(false);
         this.errorMessage.set(err?.error?.message ?? 'No pudimos crear tu cuenta.');
+      },
+    });
+  }
+
+  onGoogleSignIn(idToken: string): void {
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.authService.loginWithGoogle(idToken).subscribe({
+      next: () => {
+        this.loading.set(false);
+        this.analyticsService.track('CUSTOMER_REGISTERED', '/registro');
+        this.router.navigateByUrl('/mis-solicitudes');
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.errorMessage.set(err?.error?.message ?? 'No pudimos crear tu cuenta con Google.');
       },
     });
   }

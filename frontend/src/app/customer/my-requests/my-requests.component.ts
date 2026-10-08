@@ -2,6 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { ServiceRequestsService } from '../../core/services/service-requests.service';
 import { ServiceRequest } from '../../core/models/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -16,6 +17,7 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
     CommonModule,
     RouterLink,
     MatButtonModule,
+    MatIconModule,
     StatusBadgeComponent,
     LoadingComponent,
     EmptyStateComponent,
@@ -23,7 +25,18 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
   ],
   template: `
     <div class="page">
-      <h1>Mis solicitudes</h1>
+      <div class="page-header">
+        <div>
+          <h1>Mis solicitudes</h1>
+          <p class="subtitle">El estado de todo lo que has pedido, en un solo lugar.</p>
+        </div>
+        @if (requests().length > 0) {
+          <a mat-flat-button color="primary" routerLink="/solicitar">
+            <mat-icon inline>add</mat-icon>
+            Nueva solicitud
+          </a>
+        }
+      </div>
 
       @if (loading()) {
         <app-loading></app-loading>
@@ -37,12 +50,27 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
         <div class="cards">
           @for (req of requests(); track req.id) {
             <a class="card" [routerLink]="['/mis-solicitudes', req.id]">
-              <div class="card-header">
-                <strong>{{ req.service?.name }}</strong>
-                <app-status-badge [status]="req.status"></app-status-badge>
+              <div class="card-icon">
+                <mat-icon>{{ req.category?.icon || 'assignment' }}</mat-icon>
               </div>
-              <p class="meta">{{ req.commune?.name }} · {{ req.createdAt | date: 'dd/MM/yyyy' }}</p>
-              <p class="desc">{{ req.description }}</p>
+              <div class="card-body">
+                <div class="card-header">
+                  <strong>{{ req.service?.name }}</strong>
+                  <app-status-badge [status]="req.status"></app-status-badge>
+                </div>
+                <p class="desc">{{ req.description }}</p>
+                <div class="meta">
+                  <span><mat-icon inline>location_on</mat-icon> {{ req.commune?.name }}</span>
+                  <span><mat-icon inline>calendar_today</mat-icon> {{ req.createdAt | date: 'dd/MM/yyyy' }}</span>
+                  @if (req.budgetMin || req.budgetMax) {
+                    <span>
+                      <mat-icon inline>payments</mat-icon>
+                      {{ req.budgetMin | number: '1.0-0' }} - {{ req.budgetMax | number: '1.0-0' }}
+                    </span>
+                  }
+                </div>
+              </div>
+              <mat-icon class="chevron" inline>chevron_right</mat-icon>
             </a>
           }
         </div>
@@ -52,9 +80,23 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
   styles: [
     `
       .page {
-        max-width: 720px;
+        max-width: 760px;
         margin: 0 auto;
         padding: 2rem 1rem 4rem;
+      }
+      .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      h1 {
+        margin: 0;
+      }
+      .subtitle {
+        color: #757575;
+        margin: 0.25rem 0 0;
       }
       .cards {
         display: flex;
@@ -62,35 +104,82 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
         gap: 1rem;
       }
       .card {
-        display: block;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: #fff;
         border: 1px solid #eee;
-        border-radius: 8px;
-        padding: 1rem;
+        border-radius: 12px;
+        padding: 1.25rem;
         text-decoration: none;
         color: inherit;
-        transition: box-shadow 0.15s;
+        box-shadow: 0 8px 20px -16px rgba(22, 33, 62, 0.15);
+        transition:
+          box-shadow 0.15s,
+          transform 0.15s;
       }
       .card:hover {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 16px 32px -20px rgba(22, 33, 62, 0.25);
+        transform: translateY(-1px);
+      }
+      .card-icon {
+        flex: none;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--eslm-primary-light, #e0f2f1);
+        color: var(--eslm-primary, #00796b);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .card-body {
+        flex: 1;
+        min-width: 0;
       }
       .card-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-      }
-      .meta {
-        color: #757575;
-        font-size: 0.85rem;
-        margin: 0.25rem 0;
+        gap: 0.5rem;
       }
       .desc {
-        margin: 0;
+        margin: 0.25rem 0 0.5rem;
         color: #444;
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        color: #757575;
+        font-size: 0.82rem;
+      }
+      .meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .chevron {
+        flex: none;
+        color: #bbb;
+      }
+
+      @media (max-width: 640px) {
+        .page-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .card {
+          align-items: flex-start;
+        }
+        .chevron {
+          display: none;
+        }
       }
     `,
   ],

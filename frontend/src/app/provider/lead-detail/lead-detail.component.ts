@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { LeadsService } from '../../core/services/leads.service';
@@ -23,32 +23,36 @@ const NEXT_STATUS: Partial<Record<LeadStatus, LeadStatus>> = {
 @Component({
   selector: 'app-provider-lead-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, StatusBadgeComponent, LoadingComponent],
+  imports: [CommonModule, MatButtonModule, MatIconModule, StatusBadgeComponent, LoadingComponent],
   template: `
-    <a routerLink="/proveedor" class="back">← Volver a mis leads</a>
-
     @if (loading()) {
       <app-loading></app-loading>
     } @else if (lead()) {
       <div class="lead-detail">
         <div class="header">
-          <h2>{{ lead()!.serviceRequest?.service?.name }}</h2>
+          <div class="card-icon">
+            <mat-icon>{{ lead()!.serviceRequest?.category?.icon || 'assignment' }}</mat-icon>
+          </div>
+          <div class="header-text">
+            <h2>{{ lead()!.serviceRequest?.service?.name }}</h2>
+            <div class="meta">
+              <span><mat-icon inline>location_on</mat-icon> {{ lead()!.serviceRequest?.commune?.name }}</span>
+              <span><mat-icon inline>calendar_today</mat-icon> {{ lead()!.createdAt | date: 'dd/MM/yyyy' }}</span>
+              @if (lead()!.serviceRequest?.preferredDate) {
+                <span><mat-icon inline>event</mat-icon> {{ lead()!.serviceRequest?.preferredDate }}</span>
+              }
+              @if (lead()!.serviceRequest?.budgetMin || lead()!.serviceRequest?.budgetMax) {
+                <span>
+                  <mat-icon inline>payments</mat-icon>
+                  {{ lead()!.serviceRequest?.budgetMin | number: '1.0-0' }} - {{ lead()!.serviceRequest?.budgetMax | number: '1.0-0' }}
+                </span>
+              }
+            </div>
+          </div>
           <app-status-badge [status]="lead()!.status"></app-status-badge>
         </div>
 
-        <p class="meta">{{ lead()!.serviceRequest?.commune?.name }} · {{ lead()!.createdAt | date: 'dd/MM/yyyy' }}</p>
-
-        <h3>Descripción</h3>
-        <p>{{ lead()!.serviceRequest?.description }}</p>
-
-        @if (lead()!.serviceRequest?.preferredDate) {
-          <p><strong>Fecha deseada:</strong> {{ lead()!.serviceRequest?.preferredDate }}</p>
-        }
-        @if (lead()!.serviceRequest?.budgetMin || lead()!.serviceRequest?.budgetMax) {
-          <p>
-            <strong>Presupuesto:</strong> {{ lead()!.serviceRequest?.budgetMin ?? '—' }} - {{ lead()!.serviceRequest?.budgetMax ?? '—' }}
-          </p>
-        }
+        <p class="description">{{ lead()!.serviceRequest?.description }}</p>
 
         <h3>Datos de contacto</h3>
         <p><mat-icon inline>person</mat-icon> {{ lead()!.serviceRequest?.contactName }}</p>
@@ -78,36 +82,73 @@ const NEXT_STATUS: Partial<Record<LeadStatus, LeadStatus>> = {
   `,
   styles: [
     `
-      .back {
-        display: inline-block;
-        margin-bottom: 1rem;
-        color: #757575;
-        text-decoration: none;
-      }
-      .lead-detail {
-        max-width: 640px;
-      }
       .header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 1rem;
       }
+      .card-icon {
+        flex: none;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #e0f2f1;
+        color: var(--eslm-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .header-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .header-text h2 {
+        margin: 0 0 0.25rem;
+        font-size: 1.3rem;
+      }
       .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
         color: #757575;
-        margin-top: -0.5rem;
+        font-size: 0.85rem;
+      }
+      .meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .description {
+        margin: 1rem 0 1.5rem;
+        color: #444;
+        line-height: 1.5;
       }
       h3 {
-        margin-top: 1.5rem;
-        margin-bottom: 0.25rem;
+        margin: 0 0 0.5rem;
+        font-size: 1rem;
+      }
+      .lead-detail p:not(.description) {
+        margin: 0.4rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #444;
       }
       .actions {
         display: flex;
+        justify-content: space-between;
         gap: 0.75rem;
         margin-top: 1.5rem;
       }
       .error {
         color: #c62828;
         font-size: 0.85rem;
+      }
+
+      @media (max-width: 560px) {
+        .header {
+          flex-wrap: wrap;
+        }
       }
     `,
   ],

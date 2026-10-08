@@ -4,7 +4,7 @@ import { forkJoin } from 'rxjs';
 import { ServiceRequestsService } from '../../core/services/service-requests.service';
 import { LeadsService } from '../../core/services/leads.service';
 import { ProvidersService } from '../../core/services/providers.service';
-import { Lead, ServiceRequest } from '../../core/models/models';
+import { Lead, LeadStatus, ServiceRequest } from '../../core/models/models';
 import { AnalyticsService, AnalyticsSummary } from '../../core/services/analytics.service';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 
@@ -13,6 +13,8 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
   standalone: true,
   imports: [CommonModule, LoadingComponent],
   template: `
+    <p class="tab-description">Métricas generales de la plataforma: volumen de empresas, solicitudes y leads, y el embudo de conversión.</p>
+
     @if (loading()) {
       <app-loading></app-loading>
     } @else {
@@ -34,6 +36,24 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
           <span class="label">Solicitudes con match</span>
         </div>
       </div>
+
+      @if (avgResponseTime() || avgConversionTime()) {
+        <h3 class="section-title">Tiempos del ciclo de vida</h3>
+        <div class="cards timing-cards">
+          @if (avgResponseTime()) {
+            <div class="card" style="border-top-color: var(--eslm-accent-2)">
+              <span class="value" style="color: var(--eslm-accent-2-ink)">{{ avgResponseTime() }}</span>
+              <span class="label">Tiempo prom. hasta contactar</span>
+            </div>
+          }
+          @if (avgConversionTime()) {
+            <div class="card" style="border-top-color: var(--eslm-primary)">
+              <span class="value" style="color: var(--eslm-primary)">{{ avgConversionTime() }}</span>
+              <span class="label">Tiempo prom. hasta conversión</span>
+            </div>
+          }
+        </div>
+      }
 
       @if (funnel()) {
         <div class="funnel">
@@ -69,18 +89,35 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
 
       <div class="breakdowns">
         <div class="breakdown">
-          <h3>Leads por categoría</h3>
+          <h3>Conversión por empresa</h3>
           <ul>
-            @for (item of leadsByCategory(); track item.name) {
-              <li><span>{{ item.name }}</span><strong>{{ item.count }}</strong></li>
+            @for (item of conversionByProvider(); track item.name) {
+              <li>
+                <span>{{ item.name }}</span>
+                <strong>{{ item.rate }}% <span class="muted">({{ item.converted }}/{{ item.total }})</span></strong>
+              </li>
             }
           </ul>
         </div>
         <div class="breakdown">
-          <h3>Leads por comuna</h3>
+          <h3>Conversión por servicio</h3>
           <ul>
-            @for (item of leadsByCommune(); track item.name) {
-              <li><span>{{ item.name }}</span><strong>{{ item.count }}</strong></li>
+            @for (item of conversionByService(); track item.name) {
+              <li>
+                <span>{{ item.name }}</span>
+                <strong>{{ item.rate }}% <span class="muted">({{ item.converted }}/{{ item.total }})</span></strong>
+              </li>
+            }
+          </ul>
+        </div>
+        <div class="breakdown">
+          <h3>Conversión por comuna</h3>
+          <ul>
+            @for (item of conversionByCommune(); track item.name) {
+              <li>
+                <span>{{ item.name }}</span>
+                <strong>{{ item.rate }}% <span class="muted">({{ item.converted }}/{{ item.total }})</span></strong>
+              </li>
             }
           </ul>
         </div>
@@ -172,7 +209,7 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
       }
       .breakdowns {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 2rem;
       }
       .breakdown h3 {
@@ -191,15 +228,28 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
         border-bottom: 1px solid #f2f2f2;
         font-size: 0.9rem;
       }
+      .muted {
+        color: #999;
+        font-weight: 400;
+        font-size: 0.8rem;
+      }
+      .section-title {
+        font-size: 0.95rem;
+        margin: 0 0 1rem;
+      }
+      .timing-cards {
+        max-width: 420px;
+        margin-bottom: 2rem;
+      }
     `,
   ],
 })
 export class AdminOverviewComponent implements OnInit {
   /**
    * Límite alto para esta pantalla específicamente: los conteos superiores usan
-   * `.total` (exacto, viene del backend sin importar la página), pero el desglose
-   * "leads por categoría/comuna" y la tasa de match se calculan en el cliente sobre
-   * `.data`, así que necesitan ver (casi) todos los registros. Para volúmenes grandes
+   * `.total` (exacto, viene del backend sin importar la página), pero las tasas de
+   * conversión, los tiempos promedio y la tasa de match se calculan en el cliente
+   * sobre `.data`, así que necesitan ver (casi) todos los registros. Para volúmenes grandes
    * lo correcto sería un endpoint de agregación en el backend (GROUP BY en SQL);
    * esto es la solución pragmática para el tamaño de datos de un MVP.
    */
@@ -220,8 +270,30 @@ export class AdminOverviewComponent implements OnInit {
     return Math.round((matched / total) * 100);
   });
 
-  readonly leadsByCategory = computed(() => this.groupBy(this.leads(), (l) => l.serviceRequest?.category?.name));
-  readonly leadsByCommune = computed(() => this.groupBy(this.leads(), (l) => l.serviceRequest?.commune?.name));
+  readonly conversionByProvider = computed(() =>
+    this.groupConversion(this.leads(), (l) => l.provider?.businessName).slice(0, 8),
+  );
+  readonly conversionByService = computed(() => this.groupConversion(this.leads(), (l) => l.serviceRequest?.service?.name));
+  readonly conversionByCommune = computed(() => this.groupConversion(this.leads(), (l) => l.serviceRequest?.commune?.name));
+
+  // ponytail: "tiempo hasta conversión" usa updatedAt como proxy de "cuándo se marcó CONVERTED" en
+  // vez de una columna convertedAt dedicada — es seguro porque CONVERTED es terminal (ver
+  // LEAD_VALID_TRANSITIONS en el backend): nada vuelve a tocar el lead después. Si en el futuro se
+  // necesita reconstruir tiempos de TODAS las transiciones (no solo la última), ahí sí hace falta
+  // una columna por estado.
+  readonly avgResponseTime = computed(() => {
+    const withContact = this.leads().filter((l) => l.contactedAt);
+    if (withContact.length === 0) return null;
+    const avgHours = withContact.reduce((sum, l) => sum + this.diffHours(l.createdAt, l.contactedAt!), 0) / withContact.length;
+    return this.formatDuration(avgHours);
+  });
+
+  readonly avgConversionTime = computed(() => {
+    const converted = this.leads().filter((l) => l.status === LeadStatus.CONVERTED);
+    if (converted.length === 0) return null;
+    const avgHours = converted.reduce((sum, l) => sum + this.diffHours(l.createdAt, l.updatedAt), 0) / converted.length;
+    return this.formatDuration(avgHours);
+  });
 
   constructor(
     private readonly serviceRequestsService: ServiceRequestsService,
@@ -251,14 +323,29 @@ export class AdminOverviewComponent implements OnInit {
     });
   }
 
-  private groupBy(leads: Lead[], keyFn: (lead: Lead) => string | undefined): Array<{ name: string; count: number }> {
-    const map = new Map<string, number>();
+  private groupConversion(
+    leads: Lead[],
+    keyFn: (lead: Lead) => string | undefined,
+  ): Array<{ name: string; total: number; converted: number; rate: number }> {
+    const map = new Map<string, { total: number; converted: number }>();
     for (const lead of leads) {
-      const key = keyFn(lead) ?? 'Sin categoría';
-      map.set(key, (map.get(key) ?? 0) + 1);
+      const key = keyFn(lead) ?? 'Sin dato';
+      const entry = map.get(key) ?? { total: 0, converted: 0 };
+      entry.total += 1;
+      if (lead.status === LeadStatus.CONVERTED) entry.converted += 1;
+      map.set(key, entry);
     }
     return Array.from(map.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
+      .map(([name, { total, converted }]) => ({ name, total, converted, rate: Math.round((converted / total) * 100) }))
+      .sort((a, b) => b.total - a.total);
+  }
+
+  private diffHours(from: string, to: string): number {
+    return (new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60);
+  }
+
+  private formatDuration(hours: number): string {
+    if (hours < 24) return `${hours.toFixed(1)} h`;
+    return `${(hours / 24).toFixed(1)} días`;
   }
 }
