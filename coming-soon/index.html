@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EstaEsLaMía.cl — Próximamente</title>
+  <meta name="description" content="Encuentra a quien puede ayudarte. Muy pronto en EstaEsLaMía.cl" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --eslm-ink: #16213e;
+      --eslm-bg: #fffbf2;
+      --eslm-primary: #0e8388;
+      --eslm-primary-dark: #0a5f63;
+      --eslm-accent: #ff6b4a;
+      --eslm-accent-ink: #c1472b;
+      --eslm-accent-2: #ffb100;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      font-family: 'Barlow', 'Helvetica Neue', sans-serif;
+      background: var(--eslm-bg);
+      color: var(--eslm-ink);
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER — misma franja blanca que el navbar real del sitio */
+    header.navbar {
+      display: flex;
+      align-items: center;
+      padding: 0.9rem 1.5rem;
+      border-bottom: 1px solid #eee;
+      background: #fff;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .brand-mark {
+      flex-shrink: 0;
+    }
+    .brand-text {
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+    .brand-accent {
+      color: var(--eslm-accent-ink);
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 3rem;
+      flex-wrap: wrap;
+      padding: 3rem clamp(1.5rem, 5vw, 4rem) 4rem;
+      max-width: 1180px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    .copy {
+      flex: 1 1 480px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 1.1rem;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid #eee;
+      box-shadow: 0 6px 16px -10px rgba(22, 33, 62, 0.2);
+      font-weight: 600;
+      font-size: 0.85rem;
+      margin-bottom: 1.75rem;
+    }
+    .badge-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--eslm-accent-2);
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--eslm-accent-2) 55%, transparent);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--eslm-accent-2) 55%, transparent);
+      }
+      70% {
+        box-shadow: 0 0 0 9px color-mix(in srgb, var(--eslm-accent-2) 0%, transparent);
+      }
+      100% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--eslm-accent-2) 0%, transparent);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .badge-dot {
+        animation: none;
+      }
+    }
+    h1 {
+      font-size: clamp(2.3rem, 5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.08;
+      margin: 0 0 1.25rem;
+    }
+    h1 span {
+      color: var(--eslm-primary);
+    }
+    .lead {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: #4a5170;
+      max-width: 44ch;
+      margin: 0 0 2rem;
+    }
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+    li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 1.02rem;
+    }
+    .check {
+      flex: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: var(--eslm-primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      margin-top: 0.15rem;
+    }
+
+    /* MOCKUP */
+    .mockup {
+      flex: 1 1 380px;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 20px 50px -20px rgba(22, 33, 62, 0.25);
+      padding: 1.5rem;
+    }
+    .mockup-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1.1rem;
+    }
+    .mockup-head h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .mockup-head span {
+      font-size: 0.8rem;
+      color: #999;
+    }
+    .request-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: color-mix(in srgb, var(--eslm-primary) 8%, white);
+      border-radius: 12px;
+      padding: 0.8rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+    .request-summary strong {
+      display: block;
+      font-size: 0.98rem;
+    }
+    .matches {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .match-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .pill.matched { background: color-mix(in srgb, var(--eslm-primary) 15%, white); color: var(--eslm-primary-dark); }
+    .pill.contacted { background: color-mix(in srgb, var(--eslm-accent-2) 20%, white); color: #946200; }
+    .pill.new { background: color-mix(in srgb, var(--eslm-accent) 15%, white); color: var(--eslm-accent-ink); }
+    .confirm {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: color-mix(in srgb, var(--eslm-primary) 10%, white);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+    }
+    .confirm .check {
+      background: var(--eslm-primary);
+    }
+
+    @media (max-width: 760px) {
+      main {
+        padding-top: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true">
+        <rect x="14" y="14" width="36" height="8" rx="4" fill="#0e8388" />
+        <rect x="14" y="28" width="26" height="8" rx="4" fill="#ff6b4a" />
+        <rect x="14" y="42" width="36" height="8" rx="4" fill="#ffb100" />
+      </svg>
+      <span class="brand-text">EstaEsLaMía<span class="brand-accent">.cl</span></span>
+    </div>
+  </header>
+
+  <main>
+    <div class="copy">
+      <span class="badge"><span class="badge-dot"></span> Próximamente</span>
+      <h1>Encuentra a quien puede <span>ayudarte</span>.</h1>
+      <p class="lead">Cuéntanos qué necesitas y te conectamos con empresas y profesionales de confianza en tu comuna. Sin registro, sin vueltas.</p>
+      <ul>
+        <li><span class="check">✓</span> Describes tu solicitud en un par de minutos, sin crear cuenta.</li>
+        <li><span class="check">✓</span> Te contactan las empresas que realmente calzan con lo que buscas.</li>
+        <li><span class="check">✓</span> Sigues el estado de cada solicitud en un solo lugar.</li>
+      </ul>
+    </div>
+
+    <div class="mockup">
+      <div class="mockup-head">
+        <h3>Tu solicitud</h3>
+        <span>Ejemplo</span>
+      </div>
+      <div class="request-summary">
+        <div>
+          <strong>Gasfitería</strong>
+          Providencia
+        </div>
+        <span class="pill matched">3 empresas</span>
+      </div>
+      <div class="matches">
+        <div class="match-row">Soluciones Hidro Ltda. <span class="pill contacted">Contactado</span></div>
+        <div class="match-row">Servicios RM <span class="pill matched">Aceptado</span></div>
+        <div class="match-row">Gasfitería Express <span class="pill new">Nuevo</span></div>
+      </div>
+      <div class="confirm">
+        <span class="check">✓</span>
+        Solicitud enviada, 3 empresas ya la vieron.
+      </div>
+    </div>
+  </main>
+</body>
+</html>
