@@ -71,14 +71,21 @@ const PAGE_SIZE = 20;
         </thead>
         <tbody>
           @for (provider of providers(); track provider.id) {
-            <tr class="clickable-row" (click)="openDetail(provider)">
+            <tr
+              class="clickable-row"
+              tabindex="0"
+              role="button"
+              (click)="openDetail(provider)"
+              (keydown.enter)="openDetail(provider)"
+              (keydown.space)="$event.preventDefault(); openDetail(provider)"
+            >
               <td>{{ provider.businessName }}</td>
               <td>
                 {{ provider.email }}<br />
                 <small>{{ provider.phone }}</small>
               </td>
               <td><app-status-badge [status]="provider.status"></app-status-badge></td>
-              <td class="actions" (click)="$event.stopPropagation()">
+              <td class="actions" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
                 @if (provider.status === ProviderStatus.PENDING) {
                   <button mat-stroked-button color="primary" (click)="setStatus(provider, ProviderStatus.ACTIVE)">Aprobar</button>
                   <button mat-stroked-button color="warn" (click)="setStatus(provider, ProviderStatus.REJECTED)">Rechazar</button>
@@ -120,6 +127,10 @@ const PAGE_SIZE = 20;
       }
       .clickable-row {
         cursor: pointer;
+      }
+      .clickable-row:focus-visible {
+        outline: 2px solid var(--eslm-primary);
+        outline-offset: -2px;
       }
       .data-table tr:last-child td {
         border-bottom: none;

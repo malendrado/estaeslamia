@@ -71,7 +71,14 @@ const PAGE_SIZE = 20;
         </thead>
         <tbody>
           @for (req of requests(); track req.id) {
-            <tr class="clickable-row" (click)="openDetail(req)">
+            <tr
+              class="clickable-row"
+              tabindex="0"
+              role="button"
+              (click)="openDetail(req)"
+              (keydown.enter)="openDetail(req)"
+              (keydown.space)="$event.preventDefault(); openDetail(req)"
+            >
               <td>{{ req.createdAt | date: 'dd/MM/yyyy' }}</td>
               <td>{{ req.service?.name }}</td>
               <td>{{ req.commune?.name }}</td>
@@ -80,7 +87,7 @@ const PAGE_SIZE = 20;
                 <small>{{ req.contactEmail }} · {{ req.contactPhone }}</small>
               </td>
               <td><app-status-badge [status]="req.status"></app-status-badge></td>
-              <td (click)="$event.stopPropagation()">
+              <td (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
                 <select
                   class="status-select"
                   [attr.aria-label]="'Cambiar estado de la solicitud de ' + req.contactName"
@@ -119,6 +126,10 @@ const PAGE_SIZE = 20;
       }
       .clickable-row {
         cursor: pointer;
+      }
+      .clickable-row:focus-visible {
+        outline: 2px solid var(--eslm-primary);
+        outline-offset: -2px;
       }
       .data-table tr:last-child td {
         border-bottom: none;

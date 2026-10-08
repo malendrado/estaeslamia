@@ -303,5 +303,5 @@ Protege los 3 formularios públicos que crean datos (solicitudes, registro de cl
 
 ### Pendiente de Fase 5
 
-1. Documentación Swagger: añadidos `@ApiResponse` (200/201/400/401/403/404/409/429) en los endpoints más usados (`auth`, `service-requests` creación, `providers` registro/aprobación, `leads` cambio de estado); quedan por documentar del mismo modo los CRUD de catálogo (`categories`, `services`)
-2. Revisión final de accesibilidad (contraste de color, foco de teclado)
+1. ~~Documentación Swagger~~: completada — todos los endpoints (`auth`, `service-requests`, `providers`, `leads`, `categories`, `services`) tienen `@ApiResponse` (200/201/400/401/403/404/409/429) documentando sus respuestas reales.
+2. ~~Revisión final de accesibilidad~~: completada — el contraste de color ya estaba resuelto (`--eslm-accent-ink`/`--eslm-accent-2-ink` en `styles.scss`, oscurecidos para cumplir 4.5:1 AA como texto). El gap real era foco de teclado: las filas clicables de las 4 tablas admin (usuarios, empresas, solicitudes, leads) usaban `<tr (click)>` sin ser operables por teclado — se agregó `tabindex`, `role="button"`, manejo de `Enter`/`Espacio` y un `:focus-visible` visible en las 4.

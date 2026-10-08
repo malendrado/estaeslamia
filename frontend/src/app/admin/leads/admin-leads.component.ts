@@ -70,7 +70,14 @@ const PAGE_SIZE = 20;
         </thead>
         <tbody>
           @for (lead of leads(); track lead.id) {
-            <tr class="clickable-row" (click)="openDetail(lead)">
+            <tr
+              class="clickable-row"
+              tabindex="0"
+              role="button"
+              (click)="openDetail(lead)"
+              (keydown.enter)="openDetail(lead)"
+              (keydown.space)="$event.preventDefault(); openDetail(lead)"
+            >
               <td>{{ lead.createdAt | date: 'dd/MM/yyyy' }}</td>
               <td>{{ lead.provider?.businessName }}</td>
               <td>{{ lead.serviceRequest?.service?.name }}</td>
@@ -103,6 +110,10 @@ const PAGE_SIZE = 20;
       }
       .clickable-row {
         cursor: pointer;
+      }
+      .clickable-row:focus-visible {
+        outline: 2px solid var(--eslm-primary);
+        outline-offset: -2px;
       }
       .data-table tr:last-child td {
         border-bottom: none;

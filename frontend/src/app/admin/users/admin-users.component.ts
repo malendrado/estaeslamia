@@ -81,12 +81,19 @@ const PAGE_SIZE = 20;
           </thead>
           <tbody>
             @for (user of users(); track user.id) {
-              <tr class="clickable-row" (click)="openDetail(user)">
+              <tr
+                class="clickable-row"
+                tabindex="0"
+                role="button"
+                (click)="openDetail(user)"
+                (keydown.enter)="openDetail(user)"
+                (keydown.space)="$event.preventDefault(); openDetail(user)"
+              >
                 <td>{{ user.name }}</td>
                 <td>{{ user.email }}</td>
                 <td>{{ roleLabels[user.role] }}</td>
                 <td><app-status-badge [status]="user.isActive ? 'ACTIVE' : 'SUSPENDED'"></app-status-badge></td>
-                <td (click)="$event.stopPropagation()">
+                <td (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
                   @if (user.isActive) {
                     <button mat-stroked-button color="warn" (click)="toggle(user, false)">Suspender</button>
                   } @else if (user.hasPassword) {
@@ -124,6 +131,10 @@ const PAGE_SIZE = 20;
       }
       .clickable-row {
         cursor: pointer;
+      }
+      .clickable-row:focus-visible {
+        outline: 2px solid var(--eslm-primary);
+        outline-offset: -2px;
       }
       .data-table tr:last-child td {
         border-bottom: none;
